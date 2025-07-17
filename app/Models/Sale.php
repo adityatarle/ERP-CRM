@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Sale extends Model
 {
-    protected $fillable = ['customer_id', 'product_id', 'quantity', 'total_price','status'];
+    protected $fillable = ['customer_id', 'product_id', 'quantity', 'total_price','discount', 'status','ref_no'];
 
     public function customer()
     {
@@ -26,10 +26,25 @@ class Sale extends Model
     {
         return $this->saleItems->sum('total_price');
     }
-    
+
     public function invoice()
-{
-    return $this->hasOne(Invoice::class);
-}
-    
+    {
+        return $this->hasOne(Invoice::class);
+    }
+
+    public function invoices()
+    {
+        return $this->belongsToMany(Invoice::class, 'invoice_sale', 'sale_id', 'invoice_id')
+                    ->withTimestamps();
+    }
+    public function receivable()
+    {
+        return $this->hasOne(Receivable::class);
+    }
+
+    public function deliveryNote()
+    {
+        return $this->hasOne(DeliveryNote::class);
+    }
+
 }

@@ -1,6 +1,6 @@
 /********** Template CSS **********/
 :root {
-    --primary: #009CFF;
+    --primary: #0050a0;
     --light: #F3F6F9;
     --dark: #191C24;
 }
@@ -82,7 +82,17 @@
 .content {
     margin-left: 250px;
     background: #FFFFFF;
-    transition: 0.5s;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.main-content-area {
+    flex-grow: 1;
+}
+
+.site-footer {
+    flex-shrink: 0;
 }
 
 @media (min-width: 992px) {
@@ -274,3 +284,186 @@
     background: var(--dark);
     border-color: var(--primary);
 }
+
+/* 23/4/25 SAYALI */
+
+/* SALES CSS START */
+.form-select {
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+@media (max-width: 576px) {
+    td .btn-sm {
+        width: 100%;
+    }
+}
+
+.btn-primary:hover {
+    background: linear-gradient(90deg, #0056b3, #003d80) !important;
+}
+
+.btn-info:hover {
+    background-color: #138496 !important;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800 !important;
+}
+
+.btn-danger:hover {
+    background-color: #c82333 !important;
+}
+
+/* SALES CSS END */
+
+/* INVOICE CSS START */
+@media (max-width: 576px) {
+    .btn-sm {
+        width: 100%;
+    }
+}
+
+.card {
+    border-radius: 10px;
+}
+
+.card-header {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+@media (max-width: 767px) {
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .card-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .table thead {
+        display: none;
+    }
+
+    .table tbody tr {
+        display: block;
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+    }
+
+    .table tbody td {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border: none;
+        vertical-align: middle;
+    }
+
+    .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #495057;
+    }
+}
+
+/* INVOICE CSS END */
+
+/* CUSTOMERS INDEX CSS START */
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    border-radius: 10px;
+    transition: transform 0.2s;
+}
+
+.card-header {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+/* CUSTOMERS INDEX CSS END */
+
+/* CUSTOMERS CREATE CSS START */
+.form-label {
+    font-weight: 500;
+    color: #343a40;
+}
+
+.form-control {
+    border-radius: 5px;
+}
+
+.text-danger {
+    font-size: 0.9rem;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 767px) {
+    .card {
+        margin: 0 10px;
+    }
+
+    h1 {
+        font-size: 1.8rem;
+    }
+}
+
+/* CUSTOMERS CREATE CSS END */
+
+/* CUSTOMERS EDIT CSS START */
+.btn-outline-secondary {
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+/* CUSTOMERS EDIT CSS END */
+
+/* CUSTOMERS SHOW CSS START */
+strong {
+    color: #343a40;
+}
+
+/* CUSTOMERS SHOW CSS END */
+
+/* INVOICES PDF BLADE START */
+.invoice-details-table td {
+    font-size: 11px;
+}
+
+/* INVOICES PDF BLADE END */
+
+/* ACTIVE NAV-ITEMS CSS START */
+body.act-dash a.act-dash,
+body.act-product a.act-product,
+body.act-customers a.act-customers,
+body.act-sales a.act-sales,
+body.act-charts a.act-charts,
+body.act-invoice a.act-invoice,
+body.act-parties a.act-parties,
+body.act-payments a.act-payments,
+body.act-receiptnotes a.act-receiptnotes,
+body.act-purchaseentries a.act-purchaseentries,
+body.act-po a.act-po,
+body.act-staff a.act-staff {
+    background: var(--light) !important;
+    font-weight: 600 !important;
+    color: var(--primary) !important;
+}
+
+/* ACTIVE NAV-ITEMS CSS END */

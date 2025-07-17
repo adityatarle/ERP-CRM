@@ -16,14 +16,14 @@ class CustomersImport implements ToModel, WithHeadingRow
     public function model(array $row)
     {
         // Validate email uniqueness
-        $existingCustomer = Customer::where('email', $row['email'])->first();
+        $existingCustomer = Customer::where('name', $row['name'])->first();
         if ($existingCustomer) {
             return null; // Skip if email already exists
         }
 
         return new Customer([
             'name' => $row['name'],
-            'email' => $row['email'],
+            'gst_number' => $row['gstin_uin'],
             'phone' => $row['phone'] ?? null,
             'address' => $row['address'] ?? null,
         ]);

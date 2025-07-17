@@ -20,12 +20,11 @@ class ProductsImport implements ToModel, WithHeadingRow
         $row = array_change_key_case($row, CASE_LOWER);
 
         $name = trim($row['particulars'] ?? '');
-        $category = trim($row['category'] ?? '');
+        // $category = trim($row['category'] ?? ''); // Already commented out
 
         // Skip rows that are blank, "Grand Total", or missing required fields
         if (
             empty($name) ||
-            empty($category) ||
             strtolower($name) === 'grand total'
         ) {
             Log::warning('Skipping row due to invalid or blank data: ', $row);
@@ -48,6 +47,10 @@ class ProductsImport implements ToModel, WithHeadingRow
         $challanQty = trim($row['challan_qty'] ?? '');
         $challanQty = is_numeric($challanQty) && $challanQty >= 0 ? (int) $challanQty : 0;
 
+        // Map GST and HSN/SAC (if these fields exist in the Product model)
+        $gst = trim($row['gst'] ?? '');
+        $hsn = trim($row['hsn_sac'] ?? '');
+
         // Log if any field was invalid and defaulted to 0
         if (!is_numeric($row['tally_stock'] ?? '') || ($row['tally_stock'] ?? '') < 0) {
             Log::info('Invalid tally_stock value, defaulting to 0: ', ['row' => $row]);
@@ -67,11 +70,13 @@ class ProductsImport implements ToModel, WithHeadingRow
 
         return new Product([
             'name'       => $name,
-            'category'   => $category,
+            // 'category'   => $category, // Already commented out
             'price'      => $price,
             'stock'      => $tallyStock,
             'pstock'     => $physicalStock,
             'qty'        => $challanQty,
+            'gst'        => $gst,
+            'hsn'        => $hsn,
         ]);
     }
 

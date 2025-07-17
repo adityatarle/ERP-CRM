@@ -23,12 +23,8 @@
             max-width: 500px; /* Restrict card width for better centering */
         }
 
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
         .card-header {
-            background-color: #3a5b7f;
+            background-color: #0050a0;
             color: white;
             font-weight: 500;
             text-align: center;
@@ -57,7 +53,6 @@
 
         .is-invalid {
             border-color: #dc3545;
-       10px;
         }
 
         .invalid-feedback {
@@ -71,7 +66,8 @@
         }
 
         .btn-primary {
-            background-color: #3a5b7f;
+            background-color: #3388cc;
+            color: #ffffff;
             border: none;
             padding: 0.75rem 1.5rem;
             border-radius: 5px;
@@ -79,11 +75,6 @@
             transition: background-color 0.3s ease, transform 0.2s ease;
             width: 100%;
             margin-bottom: 0.5rem;
-        }
-
-        .btn-primary:hover {
-            background-color: #3a5b7f;
-            transform: translateY(-2px);
         }
 
         .btn-link {
@@ -140,7 +131,7 @@
         .hero-section {
             text-align: center;
             padding: 3rem 1rem;
-            background: linear-gradient(135deg, #061f3b 0%, #6610f2 100%);
+            background: linear-gradient(135deg, #0050a0 0%,  #3388cc 100%);
             color: white;
             margin-bottom: 2rem;
         }
@@ -197,17 +188,17 @@
 </head>
 <body>
     <div class="hero-section">
-        <h1>{{ __('Welcome to Our Platform') }}</h1>
-        <p>{{ __('Join us today to explore a world of opportunities and connect with our community.') }}</p>
+        <h1>{{ __('Mauli Solutions') }}</h1>
+        <!-- <p>{{ __('Join us today to explore a world of opportunities and connect with our community.') }}</p> -->
     </div>
 
     <div class="content-section">
-        <h2>{{ __('Log In to Your Account') }}</h2>
+        <!-- <h3>{{ __('Log In to Your Account') }}</h3> -->
         <!-- <p>{{ __('Access your account or') }} <a href="{{ route('register') }}" class="register-link">{{ __('register') }}</a> {{ __('to get started.') }}</p> -->
 
         <div class="container p-3 mx-auto">
             <div class="card">
-                <div class="card-header">{{ __('Login') }}</div>
+                <div class="card-header">{{ __('Login to your Account') }}</div>
 
                 <div class="card-body">
                     <form method="POST" action="{{ route('login') }}">
@@ -259,8 +250,8 @@
         </div>
     </div>
 
-    <footer class="bg-dark text-white text-center py-3 mt-auto">
+    <!-- <footer class="bg-dark text-white text-center py-3 mt-auto">
         <p class="mb-0" style="font-size: 0.9rem;">© {{ date('Y') }} CRM Inventory. All rights reserved.</p>
-    </footer>
+    </footer> -->
 </body>
 </html>

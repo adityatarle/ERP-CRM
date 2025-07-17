@@ -12,25 +12,34 @@ use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
-    public function index(Request $request)
-    {
-        // Get the search query from the request
-        $search = $request->query('search');
+   public function index(Request $request)
+{
+    // Get the search query and category filter from the request
+    $search = $request->query('search');
+    $category = $request->query('category');
 
-        // Build the query
-        $query = Product::query();
+    // Build the query
+    $query = Product::query();
 
-        // If a search term is provided, filter products by name
-        if ($search) {
-            $query->where('name', 'like', '%' . $search . '%');
-        }
-
-        // Get the filtered products
-        $products = $query->get();
-
-        // Pass the products and search term to the view
-        return view('products.index', compact('products', 'search'));
+    // If a search term is provided, filter products by name
+    if ($search) {
+        $query->where('name', 'like', '%' . $search . '%');
     }
+
+    // If a category is selected, filter products by category
+    if ($category) {
+        $query->where('category', $category);
+    }
+
+    // Get the filtered products
+    $products = $query->get();
+
+    // Get all unique categories for the dropdown
+    $categories = Product::distinct()->pluck('category')->sort();
+
+    // Pass the products, search term, categories, and selected category to the view
+    return view('products.index', compact('products', 'search', 'categories', 'category'));
+}
 
     public function create()
     {
@@ -41,19 +50,41 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+        // THE FIX: Validation rules are adjusted.
+        // `pstock` and `qty` are no longer required here.
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:products,name',
             'category' => 'required|string|max:255',
             'subcategory' => 'nullable|string|max:255',
             'price' => 'nullable|numeric|min:0',
-            'discount' => 'nullable|numeric|min:0|max:100',
-            'stock' => 'nullable|integer|min:0',
-            'pstock' => 'required|integer|min:0',
-        'qty' => 'required|integer|min:0',
+            'hsn' => 'nullable|string|max:8',
+            'item_code' => 'nullable|string|max:255', // Increased max length
+            'discount' => 'nullable|numeric|min:0|max:100', // Added discount rule
         ]);
 
-        Product::create($validated);
+        // THE FIX: Manually set the stock values to 0 by default.
+        // This applies when creating a product from the PO/Invoice page modal.
+        $validated['stock'] = $request->input('stock', 0);
+        $validated['pstock'] = $request->input('pstock', 0);
+        $validated['qty'] = $request->input('qty', 0);
 
+        $product = Product::create($validated);
+
+        // This part correctly handles the AJAX response for your modal form
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'product' => [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'stock' => $product->stock,
+                    'itemcode' => $product->item_code, // Pass back item_code
+                ],
+            ], 200);
+        }
+        
+        // This handles standard form submissions (e.g., from /products/create)
         return redirect()->route('products.index')->with('success', 'Product added successfully.');
     }
 
@@ -64,6 +95,10 @@ class ProductController extends Controller
 
     public function edit(Product $product)
     {
+        $product->load([
+            'saleItems.sale.customer',
+            'purchaseEntryItems.purchaseEntry.party'
+        ]);
         return view('products.edit', compact('product'));
     }
 
@@ -74,10 +109,11 @@ class ProductController extends Controller
             'category' => 'required|string|max:255',
             'subcategory' => 'nullable|string|max:255',
             'price' => 'nullable|numeric|min:0',
-            'discount' => 'nullable|numeric|min:0|max:100',
+            'hsn' => 'nullable|string|max:8',
+            'item_code' => 'nullable|string|max:8',
             'stock' => 'nullable|integer|min:0',
             'pstock' => 'required|integer|min:0',
-        'qty' => 'required|integer|min:0',
+            'qty' => 'required|integer|min:0',
         ]);
 
         $product->update($validated);

@@ -6,7 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class PurchaseEntry extends Model
 {
-    protected $fillable = ['purchase_number', 'purchase_date', 'invoice_number', 'invoice_date', 'party_id', 'note'];
+    protected $fillable = ['purchase_number', 'purchase_date', 'invoice_number', 'invoice_date', 'party_id', 'purchase_order_id','note','gst_amount',
+        'discount',
+        'cgst',
+        'sgst',
+        'igst',];
 
     public function party()
     {
@@ -16,5 +20,15 @@ class PurchaseEntry extends Model
     public function items()
     {
         return $this->hasMany(PurchaseEntryItem::class);
+    }
+
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(PurchaseOrder::class);
+    }
+
+    public function payable()
+    {
+        return $this->hasOne(Payable::class);
     }
 }

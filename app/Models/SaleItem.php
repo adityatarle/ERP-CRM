@@ -12,6 +12,9 @@ class SaleItem extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'itemcode',
+        'secondary_itemcode',
+        'discount',
     ];
 
     public function sale()
@@ -23,4 +26,4 @@ class SaleItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
-}
+}   

@@ -11,11 +11,12 @@ class PartiesImport implements ToModel, WithHeadingRow
     public function model(array $row)
     {
         return new Party([
-            'name' => $row['party_name'],
-            'gst_in' => $row['gstin'] ?? null, // Map "GST/IN" to "gst_in"
-            'email' => $row['emailemailcc'] ?? null, // Map "Email/EmailCC" to "email"
-            'phone_number' => $row['phonemobile_number'] ?? null, // Map "Phone/Mobile Number" to "phone_number"
+            'name' => $row['name'],
             'address' => $row['address'] ?? null,
+            'gst_in' => $row['gstin'] ?? null, // Map "GST/IN" to "gst_in"
+            // 'email' => $row['emailemailcc'] ?? null, // Map "Email/EmailCC" to "email"
+            // 'phone_number' => $row['phonemobile_number'] ?? null, // Map "Phone/Mobile Number" to "phone_number"
+            
         ]);
     }
 

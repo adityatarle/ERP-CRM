@@ -1,99 +1,174 @@
 @include('layout.header')
-<div class="container p-3 mx-auto">
-<div class="card shadow-sm w-100">
-            <div class="card-header bg-primary d-flex justify-content-between align-items-center">
-                <h1 class="mb-0">Customer Details</h1>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <!-- <p><strong>ID:</strong> {{ $customer->id }}</p> -->
-                        <p><strong>Name:</strong> {{ $customer->name }}</p>
-                        <p><strong>Email:</strong> {{ $customer->email }}</p>
-                        <p><strong>Phone:</strong> {{ $customer->phone }}</p>
-                        <p><strong>Address:</strong> {{ $customer->address }}</p>
+
+<style>
+    /* Add some specific styling for the ledger */
+    .summary-card {
+        border-left: 5px solid #198754; /* Green border for customer summary */
+    }
+    .table-responsive {
+        max-height: 500px; /* Makes long tables scrollable */
+    }
+    .sub-header {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: #343a40;
+    }
+</style>
+
+<body class="act-customers-show">
+    <div class="main-content-area">
+        <div class="container p-3 p-md-4 mx-auto">
+            
+            <!-- Customer Details & Actions -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center p-3 gap-2">
+                    <h1 class="h5 mb-0 d-flex align-items-center">
+                        <i class="fa fa-user me-2"></i>
+                        {{ $customer->name }} - Customer Ledger
+                    </h1>
+                    <div class="d-flex gap-2">
+                        <a href="{{ route('customers.edit', $customer->id) }}" class="btn btn-sm btn-primary">
+                            <i class="fa fa-edit me-1"></i> Edit Customer
+                        </a>
+                        <a href="{{ route('customers.index') }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fa fa-arrow-left me-1"></i> Back to List
+                        </a>
                     </div>
                 </div>
-                @if ($customer->sales->count())
-    <div class="card mt-4">
-        <div class="card-header bg-secondary text-white">
-            <h2 class="mb-0">Sales History</h2>
-        </div>
-        <div class="card-body">
-            <table class="table table-bordered">
-                <thead class="thead-dark">
-                    <tr>
-                        <th>Sale ID</th>
-                        <th>Product Name</th>
-                        <th>Quantity</th>
-                        <th>Price</th>
-                        <th>Total</th>
-                        <th>Sale Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($customer->sales as $sale)
-                        <tr>
-                            <td>{{ $sale->id }}</td>
-                            <td>{{ $sale->product->name ?? 'N/A' }}</td>
-                            <td>{{ $sale->quantity }}</td>
-                            <td>{{ $sale->product->price ?? 'N/A' }}</td>
-                            <td>{{ $sale->quantity * ($sale->product->price ?? 0) }}</td>
-                            <td>{{ $sale->created_at->format('d M Y') }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-@else
-    <div class="alert alert-info mt-4">
-        No sales found for this customer.
-    </div>
-@endif
-                <div class="mt-4">
-                    <a href="{{ route('customers.index') }}" class="btn btn-outline-secondary">Back to Customers</a>
+                <div class="card-body p-4">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">GSTIN / PAN</dt>
+                        <dd class="col-sm-9">{{ $customer->gst_number ?? 'N/A' }} / {{ $customer->pan_number ?? 'N/A' }}</dd>
+
+                        <dt class="col-sm-3">Email</dt>
+                        <dd class="col-sm-9">{{ $customer->email ?? 'N/A' }}</dd>
+
+                        <dt class="col-sm-3">Phone Number</dt>
+                        <dd class="col-sm-9">{{ $customer->phone ?? 'N/A' }}</dd>
+
+                        <dt class="col-sm-3">Address</dt>
+                        <dd class="col-sm-9">{!! nl2br(e($customer->city ? $customer->address .', '. $customer->city : $customer->address)) !!}</dd>
+                    </dl>
                 </div>
             </div>
+
+            <!-- Account Statement Summary -->
+            <div class="card shadow-sm border-0 mb-4 summary-card">
+                <div class="card-body">
+                    <h5 class="card-title">Account Statement</h5>
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="stat-box p-3">
+                                <h6>Total Invoiced</h6>
+                                <h4 class="fw-bold text-primary">₹{{ number_format($totalInvoiced, 2) }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-box p-3">
+                                <h6>Total Received</h6>
+                                <h4 class="fw-bold text-success">₹{{ number_format($totalReceived, 2) }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-box p-3">
+                                <h6>Balance Due</h6>
+                                <h4 class="fw-bold text-danger">₹{{ number_format($balanceDue, 2) }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Invoice History -->
+                <div class="col-lg-12 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0 sub-header"><i class="fas fa-file-invoice-dollar me-2"></i>Invoice History</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Invoice #</th>
+                                            <th>Total</th>
+                                            <th>Status</th>
+                                            <th class="text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse ($customer->invoices as $invoice)
+                                            <tr>
+                                                <td>{{ $invoice->created_at->format('d-m-Y') }}</td>
+                                                <td>{{ $invoice->invoice_number }}</td>
+                                                <td>₹{{ number_format($invoice->total, 2) }}</td>
+                                                <td>
+                                                    <span class="badge bg-{{ match($invoice->status) {'paid' => 'success', 'on_hold' => 'danger', 'approved' => 'info', default => 'secondary'} }}">{{ ucfirst($invoice->status) }}</span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <a href="{{ route('invoices.show', $invoice->id) }}" class="btn btn-sm btn-outline-info" title="View Invoice">
+                                                        <i class="fa fa-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="5" class="text-center p-4">No invoice history found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment History -->
+                <div class="col-lg-12">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0 sub-header"><i class="fas fa-hand-holding-usd me-2"></i>Payment History</h5>
+                        </div>
+                        <div class="card-body p-0">
+                             <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Payment Date</th>
+                                            <th>Amount Received</th>
+                                            <th>TDS</th>
+                                            <th>Notes / Bank</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse ($customer->payments as $payment)
+                                            <tr>
+                                                <td>{{ $payment->payment_date->format('d-m-Y') }}</td>
+                                                <td>₹{{ number_format($payment->amount, 2) }}</td>
+                                                <td>₹{{ number_format($payment->tds_amount, 2) }}</td>
+                                                <td>
+                                                    {{ $payment->notes }}
+                                                    @if($payment->bank_name)
+                                                        <small class="d-block text-muted">Bank: {{ $payment->bank_name }}</small>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="4" class="text-center p-4">No payment history found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
-
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .card {
-            border-radius: 10px;
-            transition: transform 0.2s;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        .card-header {
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-        }
-        p {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-        }
-        strong {
-            color: #343a40;
-        }
-        .btn-outline-secondary {
-            transition: background-color 0.3s, color 0.3s;
-        }
-        .btn-outline-secondary:hover {
-            background-color: #6c757d;
-            color: #fff;
-        }
-        @media (max-width: 767px) {
-            .card {
-                margin: 0 10px;
-            }
-            h1 {
-                font-size: 1.8rem;
-            }
-        }
-    </style>
-    @include('layout.footer')
+</body>
+@include('layout.footer')
