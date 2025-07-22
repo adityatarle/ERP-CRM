@@ -203,6 +203,10 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
+            // Debug: Check if jQuery and Select2 are loaded
+            console.log('jQuery version:', $.fn.jquery);
+            console.log('Select2 available:', typeof $.fn.select2);
+
             // Initialize Select2 for Purchase Order field with AJAX
             $('#purchase_order_id').select2({
                 theme: 'bootstrap-5',
@@ -214,16 +218,25 @@
                     dataType: 'json',
                     delay: 300,
                     data: function (params) {
+                        console.log('Select2 AJAX data function called with params:', params);
                         return {
-                            search: params.term || ''
+                            search: params.term || '',
+                            page: params.page || 1
                         };
                     },
-                    processResults: function (data) {
+                    processResults: function (data, params) {
+                        console.log('Select2 processResults called with data:', data);
                         return {
-                            results: data.results
+                            results: data.results || [],
+                            pagination: {
+                                more: false
+                            }
                         };
                     },
-                    cache: true
+                    cache: true,
+                    error: function(xhr, status, error) {
+                        console.error('Select2 AJAX error:', xhr, status, error);
+                    }
                 },
                 templateResult: function(item) {
                     if (!item.id) {
@@ -252,8 +265,37 @@
                 }
             });
 
-            // Load initial data when page loads
-            $('#purchase_order_id').select2('open').select2('close');
+            // Add event handlers for debugging
+            $('#purchase_order_id').on('select2:opening', function(e) {
+                console.log('Select2 opening...');
+            });
+
+            $('#purchase_order_id').on('select2:open', function(e) {
+                console.log('Select2 opened');
+            });
+
+            $('#purchase_order_id').on('select2:loading', function(e) {
+                console.log('Select2 loading data...');
+            });
+
+            $('#purchase_order_id').on('select2:loaded', function(e) {
+                console.log('Select2 data loaded');
+            });
+
+            // Test AJAX endpoint directly
+            console.log('Testing AJAX endpoint...');
+            $.ajax({
+                url: '{{ route("receipt_notes.search_purchase_orders") }}',
+                method: 'GET',
+                data: { search: '' },
+                success: function(data) {
+                    console.log('Direct AJAX test successful:', data);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Direct AJAX test failed:', xhr, status, error);
+                }
+            });
+
             const productsList = $('#products-list');
             const productsHeader = $('.products-header');
 
