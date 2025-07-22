@@ -154,7 +154,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/purchase-entries', [PurchaseEntryController::class, 'index'])->name('purchase_entries.index');
     Route::get('/purchase-entries/create', [PurchaseEntryController::class, 'create'])->name('purchase_entries.create');
     Route::post('/purchase-entries', [PurchaseEntryController::class, 'store'])->name('purchase_entries.store');
-    Route::get('/purchase-entries/purchase-orders/search', [PurchaseEntryController::class, 'getPurchaseOrdersWithRemainingItems'])->name('purchase_entries.search_purchase_orders');
+
     Route::get('/purchase-entries/{purchaseEntry}/edit', [PurchaseEntryController::class, 'edit'])->name('purchase_entries.edit');
     Route::put('/purchase-entries/{purchaseEntry}', [PurchaseEntryController::class, 'update'])->name('purchase_entries.update');
     Route::post('/purchase-entries/check-invoice', [PurchaseEntryController::class, 'checkInvoiceNumber'])->name('purchase_entries.check_invoice');
@@ -164,8 +164,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/receipt_notes', [ReceiptNoteController::class, 'index'])->name('receipt_notes.index');
     Route::get('/receipt_notes/create', [ReceiptNoteController::class, 'create'])->name('receipt_notes.create');
     Route::post('/receipt_notes', [ReceiptNoteController::class, 'store'])->name('receipt_notes.store');
-    Route::get('/receipt_notes/purchase-orders/search', [ReceiptNoteController::class, 'getPurchaseOrdersWithRemainingItems'])->name('receipt_notes.search_purchase_orders');
-    Route::get('/receipt_notes/debug/purchase-orders', [ReceiptNoteController::class, 'debugPurchaseOrders'])->name('receipt_notes.debug_purchase_orders');
+
     // THE FIX: Add these two routes for the conversion workflow
     Route::get('/receipt-notes/{id}/convert', [ReceiptNoteController::class, 'convert'])->name('receipt_notes.convert');
     Route::post('/receipt-notes/{id}/store-conversion', [ReceiptNoteController::class, 'storeConversion'])->name('receipt_notes.store_conversion');

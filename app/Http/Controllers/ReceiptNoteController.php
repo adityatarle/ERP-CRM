@@ -31,9 +31,8 @@ class ReceiptNoteController extends Controller
         // Fetch parties that have at least one purchase order
         $parties = Party::whereHas('purchaseOrders')->orderBy('name')->get();
 
-        // Fetch only purchase orders with remaining items (pending/partial status)
-        // We'll load these via AJAX for better performance and search functionality
-        $purchaseOrders = collect(); // Empty collection, will be loaded via AJAX
+        // Fetch only purchase orders with remaining items
+        $purchaseOrders = $this->getPurchaseOrdersWithRemainingItemsForView();
 
         // Pass all products for the dynamic "Add Product" functionality
         $products = Product::orderBy('name')->get();
@@ -42,81 +41,49 @@ class ReceiptNoteController extends Controller
     }
 
     /**
-     * Debug method to test if purchase orders exist
+     * Get purchase orders with remaining items for view rendering
      */
-    public function debugPurchaseOrders()
+    private function getPurchaseOrdersWithRemainingItemsForView()
     {
-        $allPOs = PurchaseOrder::with('party')->get();
-        return response()->json([
-            'total_count' => $allPOs->count(),
-            'purchase_orders' => $allPOs->map(function($po) {
-                return [
-                    'id' => $po->id,
-                    'number' => $po->purchase_order_number,
-                    'party' => $po->party ? $po->party->name : 'No Party',
-                    'items_count' => $po->items->count()
-                ];
-            })
-        ]);
-    }
+        $purchaseOrders = PurchaseOrder::with(['party', 'items.product', 'receiptNoteItems', 'purchaseEntryItems'])
+            ->orderBy('purchase_order_number', 'desc')
+            ->get();
 
-    /**
-     * Get purchase orders with remaining items for receipt note creation
-     */
-    public function getPurchaseOrdersWithRemainingItems(Request $request)
-    {
-        try {
-            $search = $request->get('search', '');
-            
-            // Start with a simple query
-            $query = PurchaseOrder::with(['party']);
-
-            // Apply search filter if provided
-            if (!empty($search)) {
-                $query->where(function($q) use ($search) {
-                    $q->where('purchase_order_number', 'LIKE', '%' . $search . '%')
-                      ->orWhereHas('party', function($partyQuery) use ($search) {
-                          $partyQuery->where('name', 'LIKE', '%' . $search . '%');
-                      });
-                });
+        // Filter purchase orders that have remaining items
+        return $purchaseOrders->filter(function($po) {
+            // Skip if no items
+            if ($po->items->isEmpty()) {
+                return false;
             }
 
-            $purchaseOrders = $query->orderBy('purchase_order_number', 'desc')->take(50)->get();
-
-            \Log::info('getPurchaseOrdersWithRemainingItems called - Total POs: ' . $purchaseOrders->count() . ', Search: ' . $search);
-
-            // For now, let's return all purchase orders to test if Select2 is working
-            $formattedData = $purchaseOrders->map(function($po) {
-                return [
-                    'id' => $po->id,
-                    'text' => $po->purchase_order_number . ' - ' . ($po->party ? $po->party->name : 'No Party'),
-                    'purchase_order_number' => $po->purchase_order_number,
-                    'party_name' => $po->party ? $po->party->name : 'No Party',
-                    'party_id' => $po->party ? $po->party_id : null,
-                    'remaining_count' => 'All',
-                    'status' => 'test'
-                ];
-            });
-
-            return response()->json([
-                'results' => $formattedData,
-                'pagination' => ['more' => false]
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Error in getPurchaseOrdersWithRemainingItems: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
+            // Calculate received quantities from both sources
+            $receivedViaNote = $po->receiptNoteItems
+                ->where('status', 'received')
+                ->groupBy('product_id')
+                ->map(fn($items) => $items->sum('quantity'));
             
-            return response()->json([
-                'results' => [
-                    [
-                        'id' => 'error',
-                        'text' => 'Error loading purchase orders: ' . $e->getMessage()
-                    ]
-                ],
-                'pagination' => ['more' => false]
-            ]);
-        }
+            $receivedViaEntry = $po->purchaseEntryItems
+                ->where('status', 'received')
+                ->groupBy('product_id')
+                ->map(fn($items) => $items->sum('quantity'));
+
+            // Check if any item has remaining quantity
+            foreach ($po->items as $item) {
+                $fromNote = $receivedViaNote->get($item->product_id, 0);
+                $fromEntry = $receivedViaEntry->get($item->product_id, 0);
+                $totalReceived = $fromNote + $fromEntry;
+                $remaining = $item->quantity - $totalReceived;
+
+                if ($remaining > 0) {
+                    return true; // This PO has at least one item with remaining quantity
+                }
+            }
+
+            return false; // All items are fully received
+        });
     }
+
+
 
     public function store(Request $request)
     {
