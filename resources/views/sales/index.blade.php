@@ -10,7 +10,12 @@
 
                 <div class="card-header bg-primary d-flex justify-content-between align-items-center text-white">
                     <h5 class="mb-2 mb-md-0">Sales</h5>
-                    <a href="{{ route('sales.create') }}" class="btn btn-light">Create Sale</a>
+                    <div class="d-flex gap-2">
+                        <a href="{{ route('sales.import.form') }}" class="btn btn-light">
+                            <i class="fa fa-upload me-1"></i>Import Excel
+                        </a>
+                        <a href="{{ route('sales.create') }}" class="btn btn-light">Create Sale</a>
+                    </div>
                 </div>
 
                 <div class="table-responsive shadow-sm"
