@@ -183,6 +183,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/purchase-orders/{id}/download-pdf', [PurchaseOrderController::class, 'downloadPDF'])
         ->name('purchase_orders.download_pdf');
     Route::get('/purchase_orders/show/{id}', [PurchaseOrderController::class, 'show'])->name('purchase_orders.show');
+    Route::get('/purchase-orders/export/remaining-items', [PurchaseOrderController::class, 'exportRemainingItems'])->name('purchase_orders.export_remaining_items');
+    Route::get('/purchase-orders/remaining-items', [PurchaseOrderController::class, 'getRemainingItems'])->name('purchase_orders.remaining_items');
 
     Route::get('/parties/search', [PartyController::class, 'search'])->name('parties.search');
 
