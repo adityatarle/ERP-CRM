@@ -105,8 +105,39 @@
                             <div class="row g-3">
                                <div class="col-md-6">
                                     <label for="purchase_order_id" class="form-label">Select Purchase Order</label>
-                                    <select name="purchase_order_id" id="purchase_order_id" class="form-select select2" required>
-                                        <option value="" selected disabled>-- Type to search PO with remaining items --</option>
+                                    <select name="purchase_order_id" id="purchase_order_id" class="form-select" required>
+                                        <option value="" selected disabled>-- Select a PO with remaining items --</option>
+                                        @foreach($purchaseOrders as $po)
+                                            @php
+                                                // Calculate remaining items count for display
+                                                $receivedViaNote = $po->receiptNoteItems
+                                                    ->where('status', 'received')
+                                                    ->groupBy('product_id')
+                                                    ->map(fn($items) => $items->sum('quantity'));
+                                                
+                                                $receivedViaEntry = $po->purchaseEntryItems
+                                                    ->where('status', 'received')
+                                                    ->groupBy('product_id')
+                                                    ->map(fn($items) => $items->sum('quantity'));
+
+                                                $remainingCount = 0;
+                                                foreach ($po->items as $item) {
+                                                    $fromNote = $receivedViaNote->get($item->product_id, 0);
+                                                    $fromEntry = $receivedViaEntry->get($item->product_id, 0);
+                                                    $totalReceived = $fromNote + $fromEntry;
+                                                    $remaining = $item->quantity - $totalReceived;
+                                                    if ($remaining > 0) {
+                                                        $remainingCount++;
+                                                    }
+                                                }
+                                            @endphp
+                                            <option value="{{ $po->id }}" 
+                                                    data-party-name="{{ $po->party->name }}" 
+                                                    data-party-id="{{ $po->party->id }}"
+                                                    data-po-number="{{ $po->purchase_order_number }}">
+                                                {{ $po->purchase_order_number }} - {{ $po->party->name }} ({{ $remainingCount }} items pending)
+                                            </option>
+                                        @endforeach
                                     </select>
                                     <input type="hidden" name="purchase_order_number" id="purchase_order_number" value="{{ old('purchase_order_number') }}">
                                     <small class="form-text text-muted">Only showing purchase orders with remaining items to receive</small>
@@ -198,98 +229,6 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
-            // Debug: Check if jQuery and Select2 are loaded
-            console.log('jQuery version:', $.fn.jquery);
-            console.log('Select2 available:', typeof $.fn.select2);
-
-            // Initialize Select2 for Purchase Order field with AJAX
-            $('#purchase_order_id').select2({
-                theme: 'bootstrap-5',
-                placeholder: 'Type to search for purchase orders...',
-                allowClear: true,
-                minimumInputLength: 0,
-                ajax: {
-                    url: '{{ route("receipt_notes.search_purchase_orders") }}',
-                    dataType: 'json',
-                    delay: 300,
-                    data: function (params) {
-                        console.log('Select2 AJAX data function called with params:', params);
-                        return {
-                            search: params.term || '',
-                            page: params.page || 1
-                        };
-                    },
-                    processResults: function (data, params) {
-                        console.log('Select2 processResults called with data:', data);
-                        return {
-                            results: data.results || [],
-                            pagination: {
-                                more: false
-                            }
-                        };
-                    },
-                    cache: true,
-                    error: function(xhr, status, error) {
-                        console.error('Select2 AJAX error:', xhr, status, error);
-                    }
-                },
-                templateResult: function(item) {
-                    if (!item.id) {
-                        return item.text;
-                    }
-                    
-                    // Create custom template showing PO details
-                    var $result = $(
-                        '<div class="d-flex justify-content-between align-items-center">' +
-                            '<div>' +
-                                '<div class="fw-bold text-primary">' + (item.purchase_order_number || '') + '</div>' +
-                                '<div class="text-muted small">' + (item.party_name || '') + '</div>' +
-                            '</div>' +
-                            '<div class="text-end">' +
-                                '<span class="badge bg-warning text-dark">' + (item.remaining_count || 0) + ' items pending</span>' +
-                            '</div>' +
-                        '</div>'
-                    );
-                    return $result;
-                },
-                templateSelection: function(item) {
-                    if (item.purchase_order_number) {
-                        return item.purchase_order_number + ' - ' + item.party_name + ' (' + item.remaining_count + ' items pending)';
-                    }
-                    return item.text;
-                }
-            });
-
-            // Add event handlers for debugging
-            $('#purchase_order_id').on('select2:opening', function(e) {
-                console.log('Select2 opening...');
-            });
-
-            $('#purchase_order_id').on('select2:open', function(e) {
-                console.log('Select2 opened');
-            });
-
-            $('#purchase_order_id').on('select2:loading', function(e) {
-                console.log('Select2 loading data...');
-            });
-
-            $('#purchase_order_id').on('select2:loaded', function(e) {
-                console.log('Select2 data loaded');
-            });
-
-            // Test AJAX endpoint directly
-            console.log('Testing AJAX endpoint...');
-            $.ajax({
-                url: '{{ route("receipt_notes.search_purchase_orders") }}',
-                method: 'GET',
-                data: { search: '' },
-                success: function(data) {
-                    console.log('Direct AJAX test successful:', data);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Direct AJAX test failed:', xhr, status, error);
-                }
-            });
 
             const productsList = $('#products-list');
             const productsHeader = $('.products-header');
@@ -299,16 +238,19 @@
                 const poId = $(this).val();
                 if (!poId) return resetForm();
 
-                // Get the selected option data from Select2
-                const selectedData = $(this).select2('data')[0];
+                // Get the selected option data attributes
+                const selectedOption = $(this).find('option:selected');
+                const partyName = selectedOption.data('party-name');
+                const partyId = selectedOption.data('party-id');
+                const poNumber = selectedOption.data('po-number');
                 
                 productsList.html('<p class="text-muted text-center p-4">Loading...</p>');
 
-                // Pre-fill party information from Select2 data if available
-                if (selectedData && selectedData.party_name) {
-                    $('#party_name').val(selectedData.party_name);
-                    $('#party_id').val(selectedData.party_id);
-                    $('#purchase_order_number').val(selectedData.purchase_order_number);
+                // Pre-fill party information from option data attributes
+                if (partyName) {
+                    $('#party_name').val(partyName);
+                    $('#party_id').val(partyId);
+                    $('#purchase_order_number').val(poNumber);
                 }
 
                 $.ajax({
