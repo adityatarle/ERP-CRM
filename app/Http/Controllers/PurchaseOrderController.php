@@ -6,21 +6,60 @@ use App\Models\Party;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
+use App\Exports\PurchaseOrderRemainingItemsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use PDF;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PurchaseOrderController extends Controller
 {
-     public function index()
+     public function index(Request $request)
     {
-        // THE FIX: Eager-load the two correct relationships for the status accessor.
-        $purchaseOrders = PurchaseOrder::with(['party', 'items', 'receiptNoteItems', 'purchaseEntryItems'])
-            ->latest()
-            ->paginate(15);
+        $query = PurchaseOrder::with(['party', 'items', 'receiptNoteItems', 'purchaseEntryItems']);
 
-        return view('purchase_orders.index', compact('purchaseOrders'));
+        // Apply filters
+        if ($request->filled('status') && $request->status !== 'all') {
+            // We'll filter by status after loading to use the accessor
+        }
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('order_date', [$request->start_date, $request->end_date]);
+        }
+
+        if ($request->filled('party_id')) {
+            $query->where('party_id', $request->party_id);
+        }
+
+        $purchaseOrders = $query->latest()->get();
+
+        // Filter by status using the accessor if needed
+        if ($request->filled('status') && $request->status !== 'all') {
+            $purchaseOrders = $purchaseOrders->filter(function ($po) use ($request) {
+                return strtolower($po->receipt_status) === strtolower($request->status);
+            });
+        }
+
+        // Paginate manually since we filtered after loading
+        $currentPage = $request->get('page', 1);
+        $perPage = 15;
+        $total = $purchaseOrders->count();
+        $purchaseOrders = $purchaseOrders->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+        // Create a paginator
+        $purchaseOrders = new \Illuminate\Pagination\LengthAwarePaginator(
+            $purchaseOrders,
+            $total,
+            $perPage,
+            $currentPage,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
+        // Get parties for filter dropdown
+        $parties = Party::orderBy('name')->get(['id', 'name']);
+
+        return view('purchase_orders.index', compact('purchaseOrders', 'parties'));
     }
 
     public function create()
@@ -282,6 +321,101 @@ class PurchaseOrderController extends Controller
         return response()->json([
             'party' => $po->party,
             'items' => $remainingItems,
+        ]);
+    }
+
+    /**
+     * Export Purchase Order Remaining Items to Excel
+     */
+    public function exportRemainingItems(Request $request)
+    {
+        $status = $request->get('status');
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+        $partyId = $request->get('party_id');
+
+        $fileName = 'purchase_order_remaining_items_' . now()->format('Y_m_d_H_i_s') . '.xlsx';
+
+        return Excel::download(
+            new PurchaseOrderRemainingItemsExport($status, $startDate, $endDate, $partyId),
+            $fileName
+        );
+    }
+
+    /**
+     * Get remaining items data for filtered view
+     */
+    public function getRemainingItems(Request $request)
+    {
+        $query = PurchaseOrder::with([
+            'party', 
+            'items.product', 
+            'receiptNoteItems', 
+            'purchaseEntryItems'
+        ]);
+
+        // Apply filters
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('order_date', [$request->start_date, $request->end_date]);
+        }
+
+        if ($request->filled('party_id')) {
+            $query->where('party_id', $request->party_id);
+        }
+
+        $purchaseOrders = $query->get();
+
+        // Filter by status using the accessor if needed
+        if ($request->filled('status') && $request->status !== 'all') {
+            $purchaseOrders = $purchaseOrders->filter(function ($po) use ($request) {
+                return strtolower($po->receipt_status) === strtolower($request->status);
+            });
+        }
+
+        // Calculate remaining items
+        $remainingItems = collect();
+
+        foreach ($purchaseOrders as $po) {
+            // Calculate received quantities from both sources
+            $receivedViaNote = $po->receiptNoteItems
+                ->where('status', 'received')
+                ->groupBy('product_id')
+                ->map(fn($items) => $items->sum('quantity'));
+            
+            $receivedViaEntry = $po->purchaseEntryItems
+                ->where('status', 'received')
+                ->groupBy('product_id')
+                ->map(fn($items) => $items->sum('quantity'));
+
+            foreach ($po->items as $item) {
+                $fromNote = $receivedViaNote->get($item->product_id, 0);
+                $fromEntry = $receivedViaEntry->get($item->product_id, 0);
+                $totalReceived = $fromNote + $fromEntry;
+                $remaining = $item->quantity - $totalReceived;
+
+                // Only include items with remaining quantity > 0
+                if ($remaining > 0) {
+                    $remainingItems->push([
+                        'purchase_order_number' => $po->purchase_order_number,
+                        'party_name' => $po->party->name,
+                        'order_date' => $po->order_date->format('d M, Y'),
+                        'product_name' => $item->product->name,
+                        'item_code' => $item->product->item_code,
+                        'ordered_quantity' => $item->quantity,
+                        'received_quantity' => $totalReceived,
+                        'remaining_quantity' => $remaining,
+                        'unit_price' => $item->unit_price,
+                        'remaining_value' => $remaining * $item->unit_price,
+                        'status' => $po->receipt_status,
+                    ]);
+                }
+            }
+        }
+
+        return response()->json([
+            'remaining_items' => $remainingItems,
+            'total_count' => $remainingItems->count(),
+            'total_remaining_value' => $remainingItems->sum('remaining_value')
         ]);
     }
 }
