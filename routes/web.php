@@ -255,6 +255,11 @@ Route::middleware('auth')->group(function () {
         // 'destroy' => 'sales.destroy',
     ]);
     Route::put('sales/update-status/{id}', [SaleController::class, 'updateStatus'])->name('sales.update-status');
+    
+    // Sales Import routes
+    Route::get('/sales/import', [SaleController::class, 'showImportForm'])->name('sales.import.form');
+    Route::post('/sales/import', [SaleController::class, 'importExcel'])->name('sales.import.excel');
+    Route::get('/sales/import/template', [SaleController::class, 'downloadTemplate'])->name('sales.import.template');
 
     // Invoice routes
     Route::get('/invoices/pending', [InvoiceController::class, 'pendingInvoices'])->name('invoices.pending')->middleware('superadmin');

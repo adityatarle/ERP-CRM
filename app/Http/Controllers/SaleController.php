@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Sale;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Imports\SalesDataImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SaleController extends Controller
 {
@@ -244,5 +246,157 @@ public function store(Request $request)
         $sale->save();
 
         return redirect()->back()->with('success', 'Sale status updated successfully.');
+    }
+
+    /**
+     * Show the import form
+     */
+    public function showImportForm()
+    {
+        return view('sales.import');
+    }
+
+    /**
+     * Import sales data from Excel
+     */
+    public function importExcel(Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB max
+        ]);
+
+        try {
+            $import = new SalesDataImport();
+            
+            Excel::import($import, $request->file('excel_file'));
+            
+            $results = $import->getImportResults();
+            
+            $message = "Import completed successfully! ";
+            $message .= "Processed: {$results['total_processed']} rows, ";
+            $message .= "Sales: {$results['sales_created']}, ";
+            $message .= "Invoices: {$results['invoices_created']}, ";
+            $message .= "Customers: {$results['customers_created']}, ";
+            $message .= "Products: {$results['products_created']}";
+            
+            if (!empty($results['errors'])) {
+                $errorMessage = "Some errors occurred: " . implode('; ', array_slice($results['errors'], 0, 3));
+                if (count($results['errors']) > 3) {
+                    $errorMessage .= " and " . (count($results['errors']) - 3) . " more errors.";
+                }
+                
+                return redirect()->route('sales.import.form')
+                    ->with('warning', $message)
+                    ->with('errors', $errorMessage);
+            }
+            
+            return redirect()->route('sales.index')->with('success', $message);
+            
+        } catch (\Exception $e) {
+            \Log::error('Sales import failed', [
+                'error' => $e->getMessage(),
+                'file' => $request->file('excel_file')->getClientOriginalName()
+            ]);
+            
+            return redirect()->route('sales.import.form')
+                ->with('error', 'Import failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download sample Excel template
+     */
+    public function downloadTemplate()
+    {
+        $headers = [
+            'Date',
+            'Particulars', 
+            'Buyer',
+            'Voucher Type',
+            'Voucher No.',
+            'Voucher Ref. No.',
+            'GSTIN/UIN',
+            'Sales Tax No.',
+            'Order No. & Date',
+            'Terms of Payment',
+            'Other References',
+            'Terms of Delivery',
+            'Quantity',
+            'Rate',
+            'Value',
+            'Gross Total',
+            'Sales-GST',
+            'CGST@9%',
+            'SGST@9%',
+            'Round Off',
+            'CGST@6%',
+            'SGST@6%'
+        ];
+
+        $sampleData = [
+            [
+                '02-Jun-25',
+                'SAMPLE COMPANY PVT LTD',
+                'SAMPLE COMPANY PVT LTD',
+                'Sales',
+                '2025/26/001',
+                '',
+                '27AABCP7335H1ZC',
+                '',
+                '101136 dt.28-Apr-25',
+                '45 Days',
+                '',
+                '',
+                '1 NOS',
+                '',
+                '5000.00',
+                '5900.00',
+                '5000.00',
+                '450.00',
+                '450.00',
+                '',
+                '',
+                ''
+            ],
+            [
+                '',
+                'SAMPLE-PRODUCT-001 Sample Product Description',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '1 NOS',
+                '5000.00/NOS',
+                '5000.00',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                ''
+            ]
+        ];
+
+        $filename = 'sales_import_template_' . date('Y_m_d') . '.csv';
+        
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, $headers);
+        foreach ($sampleData as $row) {
+            fputcsv($handle, $row);
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return response($csv)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 }
