@@ -165,6 +165,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/receipt_notes/create', [ReceiptNoteController::class, 'create'])->name('receipt_notes.create');
     Route::post('/receipt_notes', [ReceiptNoteController::class, 'store'])->name('receipt_notes.store');
     Route::get('/receipt_notes/purchase-orders/search', [ReceiptNoteController::class, 'getPurchaseOrdersWithRemainingItems'])->name('receipt_notes.search_purchase_orders');
+    Route::get('/receipt_notes/debug/purchase-orders', [ReceiptNoteController::class, 'debugPurchaseOrders'])->name('receipt_notes.debug_purchase_orders');
     // THE FIX: Add these two routes for the conversion workflow
     Route::get('/receipt-notes/{id}/convert', [ReceiptNoteController::class, 'convert'])->name('receipt_notes.convert');
     Route::post('/receipt-notes/{id}/store-conversion', [ReceiptNoteController::class, 'storeConversion'])->name('receipt_notes.store_conversion');
