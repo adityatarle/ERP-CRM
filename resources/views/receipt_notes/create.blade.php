@@ -105,13 +105,11 @@
                             <div class="row g-3">
                                <div class="col-md-6">
                                     <label for="purchase_order_id" class="form-label">Select Purchase Order</label>
-                                    <select name="purchase_order_id" id="purchase_order_id" class="form-select" required>
-                                        <option value="" selected disabled>-- Select a PO to load items --</option>
-                                        @foreach($purchaseOrders as $po)
-                                            <option value="{{ $po->id }}">{{ $po->purchase_order_number }} - {{ $po->party->name }}</option>
-                                        @endforeach
+                                    <select name="purchase_order_id" id="purchase_order_id" class="form-select select2" required>
+                                        <option value="" selected disabled>-- Type to search PO with remaining items --</option>
                                     </select>
                                     <input type="hidden" name="purchase_order_number" id="purchase_order_number" value="{{ old('purchase_order_number') }}">
+                                    <small class="form-text text-muted">Only showing purchase orders with remaining items to receive</small>
                                     @error('purchase_order_id')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
@@ -205,6 +203,57 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
+            // Initialize Select2 for Purchase Order field with AJAX
+            $('#purchase_order_id').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Type to search for purchase orders...',
+                allowClear: true,
+                minimumInputLength: 0,
+                ajax: {
+                    url: '{{ route("receipt_notes.search_purchase_orders") }}',
+                    dataType: 'json',
+                    delay: 300,
+                    data: function (params) {
+                        return {
+                            search: params.term || ''
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.results
+                        };
+                    },
+                    cache: true
+                },
+                templateResult: function(item) {
+                    if (!item.id) {
+                        return item.text;
+                    }
+                    
+                    // Create custom template showing PO details
+                    var $result = $(
+                        '<div class="d-flex justify-content-between align-items-center">' +
+                            '<div>' +
+                                '<div class="fw-bold text-primary">' + (item.purchase_order_number || '') + '</div>' +
+                                '<div class="text-muted small">' + (item.party_name || '') + '</div>' +
+                            '</div>' +
+                            '<div class="text-end">' +
+                                '<span class="badge bg-warning text-dark">' + (item.remaining_count || 0) + ' items pending</span>' +
+                            '</div>' +
+                        '</div>'
+                    );
+                    return $result;
+                },
+                templateSelection: function(item) {
+                    if (item.purchase_order_number) {
+                        return item.purchase_order_number + ' - ' + item.party_name + ' (' + item.remaining_count + ' items pending)';
+                    }
+                    return item.text;
+                }
+            });
+
+            // Load initial data when page loads
+            $('#purchase_order_id').select2('open').select2('close');
             const productsList = $('#products-list');
             const productsHeader = $('.products-header');
 
@@ -213,7 +262,17 @@
                 const poId = $(this).val();
                 if (!poId) return resetForm();
 
+                // Get the selected option data from Select2
+                const selectedData = $(this).select2('data')[0];
+                
                 productsList.html('<p class="text-muted text-center p-4">Loading...</p>');
+
+                // Pre-fill party information from Select2 data if available
+                if (selectedData && selectedData.party_name) {
+                    $('#party_name').val(selectedData.party_name);
+                    $('#party_id').val(selectedData.party_id);
+                    $('#purchase_order_number').val(selectedData.purchase_order_number);
+                }
 
                 $.ajax({
                     url: `/purchase-orders/${poId}/details`,
