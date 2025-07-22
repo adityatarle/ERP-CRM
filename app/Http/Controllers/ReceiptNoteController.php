@@ -52,6 +52,7 @@ class ReceiptNoteController extends Controller
             'purchase_order_number' => 'nullable|string|max:255',
             'discount' => 'nullable|numeric|min:0|max:100',
             'note' => 'nullable|string',
+            'contact_person' => 'required|string',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
@@ -92,6 +93,7 @@ class ReceiptNoteController extends Controller
                     'purchase_order_id' => $request->purchase_order_id,
                     'purchase_order_number' => $purchaseOrderNumber,
                     'note' => $request->note,
+                    'contact_person' => $request->contact_person, 
                     'gst_amount' => 0,
                     'discount' => $discountRate,
                 ]);
@@ -189,154 +191,130 @@ class ReceiptNoteController extends Controller
 
 
 
-    public function convertToPurchaseEntry(Request $request, $id)
-    {
-        $request->validate([
-            'invoice_number' => 'required|string|unique:purchase_entries,invoice_number',
-            'invoice_date' => 'required|date',
-            'purchase_order_id' => 'nullable|exists:purchase_orders,id', // Made optional
-            'products' => 'required|array|min:1',
-            'products.*.product_id' => 'required|exists:products,id',
-            'products.*.quantity' => 'required|numeric|min:0',
-            'products.*.unit_price' => 'required|numeric|min:0',
-            'products.*.discount' => 'nullable|numeric|min:0|max:100',
-            'products.*.cgst_rate' => 'nullable|numeric|min:0|max:100',
-            'products.*.sgst_rate' => 'nullable|numeric|min:0|max:100',
-            'products.*.igst_rate' => 'nullable|numeric|min:0|max:100',
-            'products.*.status' => 'required|in:pending,received',
-        ]);
+   public function convertToPurchaseEntry(Request $request, $id)
+{
+    $request->validate([
+        'invoice_number' => 'required|string|unique:purchase_entries,invoice_number',
+        'invoice_date' => 'required|date',
+        'purchase_order_id' => 'nullable|exists:purchase_orders,id',
+        'products' => 'required|array|min:1',
+        'products.*.product_id' => 'required|exists:products,id',
+        'products.*.quantity' => 'required|numeric|min:0',
+        'products.*.unit_price' => 'required|numeric|min:0',
+        'products.*.discount' => 'nullable|numeric|min:0|max:100',
+        'products.*.cgst_rate' => 'nullable|numeric|min:0|max:100',
+        'products.*.sgst_rate' => 'nullable|numeric|min:0|max:100',
+        'products.*.igst_rate' => 'nullable|numeric|min:0|max:100',
+        'products.*.status' => 'required|in:pending,received',
+        'subtotal' => 'required|numeric|min:0',
+        'total_discount' => 'required|numeric|min:0',
+        'total_cgst' => 'required|numeric|min:0',
+        'total_sgst' => 'required|numeric|min:0',
+        'total_igst' => 'required|numeric|min:0',
+        'grand_total' => 'required|numeric|min:0',
+    ]);
 
-        try {
-            return DB::transaction(function () use ($request, $id) {
-                Log::info('Starting convertToPurchaseEntry', ['receipt_note_id' => $id]);
+    try {
+        return DB::transaction(function () use ($request, $id) {
+            $receiptNote = ReceiptNote::with('items')->findOrFail($id);
 
-                $receiptNote = ReceiptNote::with('items')->findOrFail($id);
-                Log::info('Receipt note loaded', ['receipt_note_id' => $receiptNote->id]);
+            $receivedProducts = array_filter($request->products, fn($product) => $product['quantity'] > 0);
+            if (empty($receivedProducts)) {
+                return redirect()->back()->with('error', 'No products with valid quantities to convert.');
+            }
 
-                $receivedProducts = array_filter($request->products, fn($product) => $product['quantity'] > 0);
-                if (empty($receivedProducts)) {
-                    Log::error('No valid products to convert', ['receipt_note_id' => $id]);
-                    return redirect()->back()->with('error', 'No products with valid quantities to convert.');
-                }
+            // Create purchase entry
+            $purchaseEntry = PurchaseEntry::create([
+                'purchase_number'     => 'PE-' . strtoupper(Str::random(8)),
+                'purchase_order_id'   => $request->purchase_order_id,
+                'purchase_date'       => $request->receipt_date ?? $receiptNote->receipt_date,
+                'invoice_number'      => $request->invoice_number,
+                'invoice_date'        => $request->invoice_date,
+                'party_id'            => $request->party_id,
+                'note'                => $request->note ?? $receiptNote->note,
+                'discount'            => $request->total_discount,
+                'gst_amount'          => $request->total_cgst + $request->total_sgst + $request->total_igst,
+                'grand_total'         => $request->grand_total,
+                'from_receipt_note'   => true,
+            ]);
 
-                $totalAmount = 0;
-                $totalDiscount = 0;
-                $totalGstAmount = 0;
-                $discountRate = $request->discount ?? $receiptNote->discount ?? 0;
+            // Insert each product item
+            foreach ($receivedProducts as $item) {
+                $basePrice = $item['quantity'] * $item['unit_price'];
+                $discountRate = $item['discount'] ?? 0;
+                $discountAmount = $basePrice * ($discountRate / 100);
+                $priceAfterDiscount = $basePrice - $discountAmount;
 
-                $purchaseEntry = PurchaseEntry::create([
-                    'purchase_number' => 'PE-' . Str::random(8),
-                    'purchase_order_id' => $request->purchase_order_id,
-                    'purchase_date' => $request->receipt_date ?? $receiptNote->receipt_date,
-                    'invoice_number' => $request->invoice_number,
-                    'invoice_date' => $request->invoice_date,
-                    'party_id' => $receiptNote->party_id,
-                    'note' => $request->note ?? $receiptNote->note,
-                    'gst_amount' => 0, // Will be updated
-                    'discount' => $discountRate,
-                    'from_receipt_note' => true, // Added flag
-                ]);
-                Log::info('Purchase entry created', [
-                    'id' => $purchaseEntry->id,
-                    'discount' => $discountRate,
-                ]);
+                $cgstRate = $item['cgst_rate'] ?? 0;
+                $sgstRate = $item['sgst_rate'] ?? 0;
+                $igstRate = $item['igst_rate'] ?? 0;
 
-                foreach ($receivedProducts as $item) {
-                    $basePrice = $item['quantity'] * $item['unit_price'];
-                    $discountAmount = $basePrice * ($discountRate / 100);
-                    $priceAfterDiscount = $basePrice - $discountAmount;
+                $cgstAmount = $priceAfterDiscount * ($cgstRate / 100);
+                $sgstAmount = $priceAfterDiscount * ($sgstRate / 100);
+                $igstAmount = $priceAfterDiscount * ($igstRate / 100);
 
-                    $cgstRate = $item['cgst_rate'] ?? 0;
-                    $sgstRate = $item['sgst_rate'] ?? 0;
-                    $igstRate = $item['igst_rate'] ?? 0;
+                $totalPrice = $priceAfterDiscount + $cgstAmount + $sgstAmount + $igstAmount;
 
-                    $cgstAmount = $priceAfterDiscount * ($cgstRate / 100);
-                    $sgstAmount = $priceAfterDiscount * ($sgstRate / 100);
-                    $igstAmount = $priceAfterDiscount * ($igstRate / 100);
-                    $totalPrice = $priceAfterDiscount + $cgstAmount + $sgstAmount + $igstAmount;
-
-                    PurchaseEntryItem::create([
-                        'purchase_entry_id' => $purchaseEntry->id,
-                        'product_id' => $item['product_id'],
-                        'quantity' => $item['quantity'],
-                        'unit_price' => $item['unit_price'],
-                        'discount' => $discountRate,
-                        'total_price' => $totalPrice,
-                        'cgst_rate' => $cgstRate,
-                        'sgst_rate' => $sgstRate,
-                        'igst_rate' => $igstRate,
-                        'status' => $item['status'],
-                    ]);
-                    Log::info('Purchase entry item created', [
-                        'purchase_entry_id' => $purchaseEntry->id,
-                        'product_id' => $item['product_id'],
-                        'discount' => $discountRate,
-                        'cgst_rate' => $cgstRate,
-                        'sgst_rate' => $sgstRate,
-                        'igst_rate' => $igstRate,
-                        'total_price' => $totalPrice,
-                        'status' => $item['status'],
-                    ]);
-
-                    $totalAmount += $totalPrice;
-                    $totalDiscount += $discountAmount;
-                    $totalGstAmount += ($cgstAmount + $sgstAmount + $igstAmount);
-                }
-
-                $purchaseEntry->update([
-                    'gst_amount' => $totalGstAmount,
-                    'discount' => $totalDiscount,
-                ]);
-                Log::info('Purchase entry updated with totals', [
-                    'id' => $purchaseEntry->id,
-                    'gst_amount' => $totalGstAmount,
-                    'discount' => $totalDiscount,
-                ]);
-
-                Payable::create([
+                PurchaseEntryItem::create([
                     'purchase_entry_id' => $purchaseEntry->id,
-                    'party_id' => $receiptNote->party_id,
-                    'amount' => $totalAmount,
-                    'is_paid' => false,
+                    'product_id'        => $item['product_id'],
+                    'quantity'          => $item['quantity'],
+                    'unit_price'        => $item['unit_price'],
+                    'discount'          => $discountRate,
+                    'total_price'       => $totalPrice,
+                    'cgst_rate'         => $cgstRate,
+                    'sgst_rate'         => $sgstRate,
+                    'igst_rate'         => $igstRate,
+                    'status'            => $item['status'],
                 ]);
-                Log::info('Payable created', ['purchase_entry_id' => $purchaseEntry->id, 'amount' => $totalAmount]);
+            }
 
-                // Update PO status if all items are received
-                if ($request->purchase_order_id) {
-                    $purchaseOrderItems = PurchaseOrderItem::where('purchase_order_id', $request->purchase_order_id)->get();
-                    $allItemsReceived = true;
+            // Create payable
+            Payable::create([
+                'purchase_entry_id' => $purchaseEntry->id,
+                'party_id'          => $request->party_id,
+                'amount'            => $request->grand_total,
+                'is_paid'           => false,
+            ]);
 
-                    foreach ($purchaseOrderItems as $orderItem) {
-                        $orderedQty = $orderItem->quantity;
-                        $receivedQty = PurchaseEntryItem::whereHas('purchaseEntry', function ($q) use ($request) {
-                            $q->where('purchase_order_id', $request->purchase_order_id);
-                        })->where('product_id', $orderItem->product_id)
-                            ->where('status', 'received')
-                            ->sum('quantity');
+            // Check if all PO items are received
+            if ($request->purchase_order_id) {
+                $poItems = PurchaseOrderItem::where('purchase_order_id', $request->purchase_order_id)->get();
+                $allReceived = true;
 
-                        if ($receivedQty < $orderedQty) {
-                            $allItemsReceived = false;
-                            break;
-                        }
-                    }
+                foreach ($poItems as $orderItem) {
+                    $orderedQty = $orderItem->quantity;
+                    $receivedQty = PurchaseEntryItem::whereHas('purchaseEntry', fn($q) => $q->where('purchase_order_id', $request->purchase_order_id))
+                        ->where('product_id', $orderItem->product_id)
+                        ->where('status', 'received')
+                        ->sum('quantity');
 
-                    if ($allItemsReceived) {
-                        PurchaseOrder::where('id', $request->purchase_order_id)->update(['status' => 'received']);
+                    if ($receivedQty < $orderedQty) {
+                        $allReceived = false;
+                        break;
                     }
                 }
 
-                $receiptNote->items()->delete();
-                Log::info('Receipt note items deleted', ['receipt_note_id' => $receiptNote->id]);
-                $receiptNote->delete();
-                Log::info('Receipt note deleted', ['id' => $id]);
+                if ($allReceived) {
+                    PurchaseOrder::where('id', $request->purchase_order_id)->update(['status' => 'received']);
+                }
+            }
 
-                return redirect()->route('purchase_entries.index')->with('success', 'Receipt note converted to purchase entry successfully.');
-            });
-        } catch (\Exception $e) {
-            Log::error('Conversion failed', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return redirect()->back()->withErrors(['error' => 'An error occurred while converting the receipt note. Check logs for details.']);
-        }
+            // Cleanup
+            $receiptNote->items()->delete();
+            $receiptNote->delete();
+
+            return redirect()->route('purchase_entries.index')->with('success', 'Receipt note converted to purchase entry successfully.');
+        });
+    } catch (\Exception $e) {
+        Log::error('Conversion failed', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        return redirect()->back()->withErrors(['error' => 'An error occurred during conversion.']);
     }
+}
+
 
     public function convertToPurchaseEntrybk(Request $request, $id)
     {
@@ -365,14 +343,18 @@ class ReceiptNoteController extends Controller
                 $purchaseEntry = PurchaseEntry::create([
                     'purchase_number' => 'PE-' . Str::random(8),
                     'purchase_order_id' => $request->purchase_order_id,
-                    'purchase_date' => $receiptNote->receipt_date,
+                    'purchase_date' => $request->receipt_date ?? $receiptNote->receipt_date,
                     'invoice_number' => $request->invoice_number,
                     'invoice_date' => $request->invoice_date,
                     'party_id' => $receiptNote->party_id,
-                    'note' => $receiptNote->note,
-                    'gst_amount' => 0, // Will be updated
-                    'discount' => $discountRate,
+                    'note' => $request->note ?? $receiptNote->note,
+                    'gst_amount' => $request->total_cgst + $request->total_sgst + $request->total_igst,
+                    'discount' => $request->total_discount,
+                    'subtotal' => $request->subtotal,
+                    'grand_total' => $request->grand_total,
+                    'from_receipt_note' => true,
                 ]);
+
                 Log::info('Purchase entry created', [
                     'id' => $purchaseEntry->id,
                     'discount' => $discountRate,

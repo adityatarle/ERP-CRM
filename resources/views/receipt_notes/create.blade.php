@@ -130,6 +130,11 @@
                                     <input type="date" name="receipt_date" id="receipt_date" class="form-control" value="{{ old('receipt_date', date('Y-m-d')) }}" required>
                                 </div>
                                 
+                                <div class="col-md-4">
+                                    <label for="contact_person" class="form-label">Contact Person</label>
+                                    <input type="text" name="contact_person" class="form-control" rows="2" required>
+                                </div>
+
                                 <div class="col-12">
                                     <label for="note" class="form-label">Note (Optional)</label>
                                     <textarea name="note" id="note" class="form-control" rows="2" placeholder="Add any additional notes">{{ old('note') }}</textarea>

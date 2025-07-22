@@ -15,6 +15,7 @@ class Invoice extends Model
         'due_date',
         'purchase_number', 
         'purchase_date',
+        'contact_person',
         'subtotal',
         'tax',
         'gst_type',

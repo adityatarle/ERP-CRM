@@ -32,7 +32,7 @@
             display: grid;
             grid-template-columns: 3fr 1fr 1.5fr 1fr 1fr 1fr 1fr 1fr 0.5fr;
             gap: 1rem;
-            align-items: start;
+            align-items: center;
             padding: 0.75rem 1rem;
         }
 
@@ -51,10 +51,11 @@
             border-radius: .375rem;
             margin-bottom: 0.75rem;
         }
-
+        
+        /* Added style for readonly inputs */
         .product-item-row .form-control[readonly] {
-            background-color: #e9ecef;
-            pointer-events: none;
+            background-color: #e9ecef !important; /* Use important to override other styles */
+            cursor: not-allowed;
         }
 
         .totals-card {
@@ -80,6 +81,7 @@
 
             .product-item-row {
                 grid-template-columns: 1fr 1fr;
+                gap: 0.75rem;
             }
         }
     </style>
@@ -248,61 +250,123 @@
                             </div>
                         </div>
 
-                        <div class="mt-4 text-end">
-                            <button type="submit" class="btn btn-primary btn-lg" id="submit-btn">Update Receipt Note</button>
+                        <div class="mt-4 text-end d-flex justify-content-end gap-2">
+                             <button type="submit" class="btn btn-primary btn-lg" id="submit-btn">Update Receipt Note</button>
+                             <!-- Conversion Form Trigger -->
+                             <button type="button" class="btn btn-success btn-lg" id="convert-btn">Convert to Purchase Entry</button>
                         </div>
                     </form>
 
-                    <!-- Conversion Form -->
-                    <form action="{{ route('receipt_notes.convert', $receiptNote->id) }}" method="POST" id="convert-receipt-note-form" class="d-inline">
+                    <!-- Conversion Form (Hidden) -->
+                    <form action="{{ route('receipt_notes.convert', $receiptNote->id) }}" method="POST" id="convert-receipt-note-form" class="d-none">
                         @csrf
                         @method('POST')
-                        <input type="hidden" name="purchase_order_id" id="convert_purchase_order_id" value="{{ $receiptNote->purchase_order_id }}">
-                        <input type="hidden" name="party_id" value="{{ $receiptNote->party_id }}">
-                        <input type="hidden" name="invoice_number" value="{{  $receiptNote->invoice_number }}">
-                        <input type="hidden" name="invoice_date" value="{{  $receiptNote->invoice_date }}">
-                        <input type="hidden" name="receipt_number" value="{{ old('receipt_number', $receiptNote->receipt_number) }}">
-                        <input type="hidden" name="receipt_date" value="{{ old('receipt_date', $receiptNote->receipt_date) }}">
-                        <input type="hidden" name="note" value="{{ old('note', $receiptNote->note) }}">
-                        <input type="hidden" name="discount" value="{{ old('discount', $receiptNote->discount) }}">
-                        @foreach($receiptNote->items as $index => $item)
-                        <input type="hidden" name="products[{{ $index }}][product_id]" value="{{ $item->product_id }}">
-                        <input type="hidden" name="products[{{ $index }}][quantity]" class="convert-quantity-input" value="{{ old('products.' . $index . '.quantity', $item->quantity) }}">
-                        <input type="hidden" name="products[{{ $index }}][unit_price]" class="convert-unit-price" value="{{ old('products.' . $index . '.unit_price', $item->unit_price) }}">
-                        <input type="hidden" name="products[{{ $index }}][discount]" class="convert-discount-input" value="{{ old('products.' . $index . '.discount', $item->discount ?? $receiptNote->discount) }}">
-                        <input type="hidden" name="products[{{ $index }}][cgst_rate]" class="convert-cgst-rate" value="{{ old('products.' . $index . '.cgst_rate', $item->cgst_rate) }}">
-                        <input type="hidden" name="products[{{ $index }}][sgst_rate]" class="convert-sgst-rate" value="{{ old('products.' . $index . '.sgst_rate', $item->sgst_rate) }}">
-                        <input type="hidden" name="products[{{ $index }}][igst_rate]" class="convert-igst-rate" value="{{ old('products.' . $index . '.igst_rate', $item->igst_rate) }}">
-                        <input type="hidden" name="products[{{ $index }}][status]" class="convert-status" value="{{ $item->status }}">
-                        @endforeach
-                        <button type="submit" class="btn btn-success btn-lg" id="convert-btn">Convert to Purchase Entry</button>
+                        {{-- This form will be populated by JavaScript before submission --}}
                     </form>
+
                 </div>
             </div>
         </div>
     </div>
 
+    @include('layout.footer')
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
     <script>
         $(document).ready(function() {
             const productsList = $('#products-list');
             const productsHeader = $('.products-header');
-            let productIndex = {
-                {
-                    $receiptNote - > items - > count()
-                }
-            };
+            let productIndex = {{ $receiptNote->items->count() }};
+            
+            // --- HELPER & LOGIC FUNCTIONS ---
 
-            // Show products header if items exist
-            if (productsList.children().length > 0) {
-                productsHeader.css('display', 'grid');
+            const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+            // NEW: Function to handle CGST/SGST vs IGST logic
+            function updateTaxFields($row) {
+                const $cgstInput = $row.find('.cgst-rate');
+                const $sgstInput = $row.find('.sgst-rate');
+                const $igstInput = $row.find('.igst-rate');
+
+                const cgstVal = parseFloat($cgstInput.val()) || 0;
+                const sgstVal = parseFloat($sgstInput.val()) || 0;
+                const igstVal = parseFloat($igstInput.val()) || 0;
+
+                if (cgstVal > 0 || sgstVal > 0) {
+                    // If CGST or SGST has a value, disable IGST
+                    $igstInput.val('').prop('readonly', true);
+                } else if (igstVal > 0) {
+                    // If IGST has a value, disable CGST and SGST
+                    $cgstInput.val('').prop('readonly', true);
+                    $sgstInput.val('').prop('readonly', true);
+                } else {
+                    // If all are empty, enable all
+                    $cgstInput.prop('readonly', false);
+                    $sgstInput.prop('readonly', false);
+                    $igstInput.prop('readonly', false);
+                }
             }
 
-            // Add new product row
+            function calculateTotals() {
+                let subtotal = 0;
+                let totalDiscount = 0;
+                let totalCgst = 0;
+                let totalSgst = 0;
+                let totalIgst = 0;
+                let grandTotal = 0;
+
+                $('.product-item-row').each(function() {
+                    const $row = $(this);
+                    const quantity = parseFloat($row.find('.quantity-input').val()) || 0;
+                    const unitPrice = parseFloat($row.find('.unit-price').val()) || 0;
+                    const discountPercent = parseFloat($row.find('.discount-input').val()) || 0;
+                    const cgstRate = parseFloat($row.find('.cgst-rate').val()) || 0;
+                    const sgstRate = parseFloat($row.find('.sgst-rate').val()) || 0;
+                    const igstRate = parseFloat($row.find('.igst-rate').val()) || 0;
+
+                    if (quantity > 0 && unitPrice >= 0) {
+                        const itemSubtotal = quantity * unitPrice;
+                        const itemDiscountAmount = itemSubtotal * (discountPercent / 100);
+                        const taxableValue = itemSubtotal - itemDiscountAmount;
+                        const cgstAmount = taxableValue * (cgstRate / 100);
+                        const sgstAmount = taxableValue * (sgstRate / 100);
+                        const igstAmount = taxableValue * (igstRate / 100);
+                        const itemTotal = taxableValue + cgstAmount + sgstAmount + igstAmount;
+
+                        subtotal += itemSubtotal;
+                        totalDiscount += itemDiscountAmount;
+                        totalCgst += cgstAmount;
+                        totalSgst += sgstAmount;
+                        totalIgst += igstAmount;
+                        grandTotal += itemTotal;
+                    }
+                });
+                
+                $('#subtotal').text(formatCurrency(subtotal));
+                $('#total_discount').text(formatCurrency(totalDiscount));
+                $('#total_cgst').text(formatCurrency(totalCgst));
+                $('#total_sgst').text(formatCurrency(totalSgst));
+                $('#total_igst').text(formatCurrency(totalIgst));
+                $('#grand_total').text(formatCurrency(grandTotal));
+            }
+
+            // --- UI & EVENT HANDLERS ---
+            
+            if (productsList.children('.product-item-row').length > 0) {
+                productsHeader.css('display', 'grid');
+            } else {
+                productsList.html('<p class="text-muted text-center p-4 border rounded">No products on this receipt note.</p>');
+                productsHeader.hide();
+            }
+
             $('#add_product').on('change', function() {
                 const productId = $(this).val();
-                const productName = $(this).find('option:selected').data('name');
                 if (!productId) return;
+                const productName = $(this).find('option:selected').data('name');
+                if (productsList.find('p').length > 0) productsList.empty();
 
                 const rowHtml = `
                     <div class="product-item-row" id="row-${productIndex}">
@@ -312,14 +376,14 @@
                             <input type="number" name="products[${productIndex}][quantity]" class="form-control quantity-input" min="0" max="9999" required placeholder="0">
                             <small class="text-muted">Max: 9999</small>
                         </div>
-                        <div><input type="number" name="products[${productIndex}][unit_price]" class="form-control unit-price" step="0.01" required></div>
-                        <div><input type="number" name="products[${productIndex}][discount]" class="form-control discount-input" step="0.01" min="0" max="100"></div>
-                        <div><input type="number" name="products[${productIndex}][cgst_rate]" class="form-control cgst-rate" step="0.01" min="0" max="100"></div>
-                        <div><input type="number" name="products[${productIndex}][sgst_rate]" class="form-control sgst-rate" step="0.01" min="0" max="100"></div>
-                        <div><input type="number" name="products[${productIndex}][igst_rate]" class="form-control igst-rate" step="0.01" min="0" max="100"></div>
+                        <div><input type="number" name="products[${productIndex}][unit_price]" class="form-control unit-price" step="0.01" required placeholder="0.00"></div>
+                        <div><input type="number" name="products[${productIndex}][discount]" class="form-control discount-input" step="0.01" min="0" max="100" placeholder="0"></div>
+                        <div><input type="number" name="products[${productIndex}][cgst_rate]" class="form-control cgst-rate" step="0.01" min="0" max="100" placeholder="0"></div>
+                        <div><input type="number" name="products[${productIndex}][sgst_rate]" class="form-control sgst-rate" step="0.01" min="0" max="100" placeholder="0"></div>
+                        <div><input type="number" name="products[${productIndex}][igst_rate]" class="form-control igst-rate" step="0.01" min="0" max="100" placeholder="0"></div>
                         <div>
                             <select name="products[${productIndex}][status]" class="form-select status-select">
-                                <option value="received">Received</option>
+                                <option value="received" selected>Received</option>
                                 <option value="pending">Pending</option>
                             </select>
                         </div>
@@ -330,142 +394,99 @@
                 productsList.append(rowHtml);
                 productsHeader.css('display', 'grid');
                 productIndex++;
-                $(this).val(''); // Reset select
-                updateConversionForm();
+                $(this).val('').trigger('change.select2');
                 calculateTotals();
             });
 
-            // Remove product row
             productsList.on('click', '.remove-item-btn', function() {
                 $(this).closest('.product-item-row').remove();
-                if (productsList.children().length === 0) {
-                    productsList.html('<p class="text-muted text-center p-4 border rounded">No products added.</p>');
+                if (productsList.children('.product-item-row').length === 0) {
+                    productsList.html('<p class="text-muted text-center p-4 border rounded">No products on this receipt note.</p>');
                     productsHeader.hide();
                 }
-                updateConversionForm();
                 calculateTotals();
             });
 
-            // Validate quantity input
             productsList.on('input', '.quantity-input', function() {
                 const $input = $(this);
                 const maxQty = parseFloat($input.attr('max')) || 9999;
                 const currentQty = parseFloat($input.val());
-
+                $input.parent().find('.text-danger').remove();
                 if (currentQty > maxQty) {
                     $input.val(maxQty);
-                    const $warning = $('<small class="text-danger d-block mt-1">Max qty exceeded.</small>');
-                    $input.parent().append($warning);
-                    setTimeout(() => $warning.remove(), 2000);
+                    $input.parent().append('<small class="text-danger d-block mt-1">Max qty exceeded.</small>');
+                    setTimeout(() => $input.parent().find('.text-danger').remove(), 2500);
                 }
-                updateConversionForm();
+            });
+
+            // --- FORM SUBMISSION LOGIC ---
+
+            $('#convert-btn').on('click', function(e) {
+                e.preventDefault();
+                const invoiceNumber = $('#invoice_number').val().trim();
+                const invoiceDate = $('#invoice_date').val().trim();
+
+                if (!invoiceNumber || !invoiceDate) {
+                    alert('Please fill in both Invoice Number and Invoice Date before converting to a purchase entry.');
+                    return;
+                }
+                
+                const getAmount = (id) => parseFloat(document.getElementById(id).innerText.replace(/[₹,]/g, '')) || 0;
+                const $convertForm = $('#convert-receipt-note-form').empty();
+                
+                $convertForm.append('@csrf @method("POST")');
+                $convertForm.append(`<input type="hidden" name="party_id" value="${$('#party_id').val()}">`);
+                $convertForm.append(`<input type="hidden" name="purchase_order_id" value="{{ $receiptNote->purchase_order_id }}">`);
+                $convertForm.append(`<input type="hidden" name="receipt_number" value="${$('#receipt_number').val()}">`);
+                $convertForm.append(`<input type="hidden" name="receipt_date" value="${$('#receipt_date').val()}">`);
+                $convertForm.append(`<input type="hidden" name="invoice_number" value="${invoiceNumber}">`);
+                $convertForm.append(`<input type="hidden" name="invoice_date" value="${invoiceDate}">`);
+                $convertForm.append(`<input type="hidden" name="note" value="${$('#note').val()}">`);
+                
+                $('.product-item-row').each(function(index) {
+                    const $row = $(this);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][product_id]" value="${$row.find('input[name$="[product_id]"]').val()}">`);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][quantity]" value="${$row.find('.quantity-input').val()}">`);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][unit_price]" value="${$row.find('.unit-price').val()}">`);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][discount]" value="${$row.find('.discount-input').val()}">`);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][cgst_rate]" value="${$row.find('.cgst-rate').val()}">`);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][sgst_rate]" value="${$row.find('.sgst-rate').val()}">`);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][igst_rate]" value="${$row.find('.igst-rate').val()}">`);
+                    $convertForm.append(`<input type="hidden" name="products[${index}][status]" value="${$row.find('.status-select').val()}">`);
+                });
+                
+                $convertForm.append(`<input type="hidden" name="subtotal" value="${getAmount('subtotal').toFixed(2)}">`);
+                $convertForm.append(`<input type="hidden" name="total_discount" value="${getAmount('total_discount').toFixed(2)}">`);
+                $convertForm.append(`<input type="hidden" name="total_cgst" value="${getAmount('total_cgst').toFixed(2)}">`);
+                $convertForm.append(`<input type="hidden" name="total_sgst" value="${getAmount('total_sgst').toFixed(2)}">`);
+                $convertForm.append(`<input type="hidden" name="total_igst" value="${getAmount('total_igst').toFixed(2)}">`);
+                $convertForm.append(`<input type="hidden" name="grand_total" value="${getAmount('grand_total').toFixed(2)}">`);
+                
+                $convertForm.submit();
+            });
+
+
+            // Recalculate totals and update tax fields whenever a relevant input changes
+            $(document).on('input', '.quantity-input, .unit-price, .discount-input, .cgst-rate, .sgst-rate, .igst-rate', function() {
+                const $row = $(this).closest('.product-item-row');
+                // If the changed input is a tax field, update the readonly states
+                if ($(this).is('.cgst-rate, .sgst-rate, .igst-rate')) {
+                    updateTaxFields($row);
+                }
                 calculateTotals();
             });
 
-            // Update conversion form inputs
-            function updateConversionForm() {
-                const $convertForm = $('#convert-receipt-note-form');
-                $convertForm.find('input[name^="products"]').remove(); // Clear existing product inputs
+            // --- INITIALIZATION ---
 
-                $('.product-item-row').each(function(index) {
-                    const $row = $(this);
-                    const productId = $row.find('input[name$="[product_id]"]').val();
-                    const quantity = $row.find('.quantity-input').val();
-                    const unitPrice = $row.find('.unit-price').val();
-                    const discount = $row.find('.discount-input').val();
-                    const cgstRate = $row.find('.cgst-rate').val();
-                    const sgstRate = $row.find('.sgst-rate').val();
-                    const igstRate = $row.find('.igst-rate').val();
-                    const status = $row.find('.status-select').val();
-
-                    $convertForm.append(`
-                        <input type="hidden" name="products[${index}][product_id]" value="${productId}">
-                        <input type="hidden" name="products[${index}][quantity]" class="convert-quantity-input" value="${quantity}">
-                        <input type="hidden" name="products[${index}][unit_price]" class="convert-unit-price" value="${unitPrice}">
-                        <input type="hidden" name="products[${index}][discount]" class="convert-discount-input" value="${discount}">
-                        <input type="hidden" name="products[${index}][cgst_rate]" class="convert-cgst-rate" value="${cgstRate}">
-                        <input type="hidden" name="products[${index}][sgst_rate]" class="convert-sgst-rate" value="${sgstRate}">
-                        <input type="hidden" name="products[${index}][igst_rate]" class="convert-igst-rate" value="${igstRate}">
-                        <input type="hidden" name="products[${index}][status]" class="convert-status" value="${status}">
-                    `);
-                });
-
-                // Update top-level fields
-                $convertForm.find('input[name="purchase_order_id"]').val($('#purchase_order_id').val());
-                $convertForm.find('input[name="receipt_number"]').val($('#receipt_number').val());
-                $convertForm.find('input[name="receipt_date"]').val($('#receipt_date').val());
-                $convertForm.find('input[name="invoice_number"]').val($('#invoice_number').val());
-                $convertForm.find('input[name="invoice_date"]').val($('#invoice_date').val());
-                $convertForm.find('input[name="discount"]').val($('#discount').val());
-                $convertForm.find('input[name="note"]').val($('#note').val());
-            }
-
-            // Calculate totals
-            function calculateTotals() {
-                let grandSubtotal = 0;
-                let grandTotalDiscount = 0;
-                let grandTotalCgst = 0;
-                let grandTotalSgst = 0;
-                let grandTotalIgst = 0;
-
-                const discountRate = parseFloat($('#discount').val()) || 0;
-
-                $('.product-item-row').each(function() {
-                    const quantity = parseFloat($(this).find('.quantity-input').val()) || 0;
-                    const unitPrice = parseFloat($(this).find('.unit-price').val()) || 0;
-                    const cgstRate = parseFloat($(this).find('.cgst-rate').val()) || 0;
-                    const sgstRate = parseFloat($(this).find('.sgst-rate').val()) || 0;
-                    const igstRate = parseFloat($(this).find('.igst-rate').val()) || 0;
-
-                    if (quantity > 0 && unitPrice >= 0) {
-                        const basePrice = quantity * unitPrice;
-                        const discountAmount = basePrice * (discountRate / 100);
-                        const priceAfterDiscount = basePrice - discountAmount;
-
-                        const cgstAmount = priceAfterDiscount * (cgstRate / 100);
-                        const sgstAmount = priceAfterDiscount * (sgstRate / 100);
-                        const igstAmount = priceAfterDiscount * (igstRate / 100);
-
-                        grandSubtotal += priceAfterDiscount;
-                        grandTotalDiscount += discountAmount;
-                        grandTotalCgst += cgstAmount;
-                        grandTotalSgst += sgstAmount;
-                        grandTotalIgst += igstAmount;
-                    }
-                });
-
-                $('#subtotal').text('₹' + grandSubtotal.toFixed(2));
-                $('#total_discount').text('₹' + grandTotalDiscount.toFixed(2));
-                $('#total_cgst').text('₹' + grandTotalCgst.toFixed(2));
-                $('#total_sgst').text('₹' + grandTotalSgst.toFixed(2));
-                $('#total_igst').text('₹' + grandTotalIgst.toFixed(2));
-                $('#grand_total').text('₹' + (grandSubtotal + grandTotalCgst + grandTotalSgst + grandTotalIgst).toFixed(2));
-            }
-
-            // Validate conversion form before submission
-            $('#convert-btn').on('click', function(e) {
-                const invoiceNumber = $('#invoice_number').val();
-                const invoiceDate = $('#invoice_date').val();
-
-                if (!invoiceNumber || !invoiceDate) {
-                    e.preventDefault();
-                    alert('Please fill in Invoice Number and Invoice Date before converting to a purchase entry.');
-                    return;
-                }
-
-                updateConversionForm();
+            // Apply tax logic to all existing rows on page load
+            $('.product-item-row').each(function() {
+                updateTaxFields($(this));
             });
 
-            // Update conversion form on input change
-            $(document).on('input', '.quantity-input, .unit-price, .discount-input, .cgst-rate, .sgst-rate, .igst-rate, #discount, #receipt_number, #receipt_date, #invoice_number, #invoice_date, #note, #purchase_order_id', updateConversionForm);
-
-            // Trigger initial updates
-            updateConversionForm();
+            // Trigger initial calculation on page load
             calculateTotals();
-
-            // Update totals on input change
-            $(document).on('input', '.quantity-input, .unit-price, .discount-input, .cgst-rate, .sgst-rate, .igst-rate, #discount', calculateTotals);
         });
     </script>
+
 </body>
-@include('layout.footer')
+</html>

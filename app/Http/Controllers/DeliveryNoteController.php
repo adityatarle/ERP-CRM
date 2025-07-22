@@ -68,6 +68,7 @@ class DeliveryNoteController extends Controller
             'igst' => 'nullable|numeric|min:0|max:100',
             'description' => 'nullable|string',
             'notes' => 'nullable|string',
+            'contact_person' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -103,6 +104,7 @@ class DeliveryNoteController extends Controller
                 'igst' => $validated['gst_type'] === 'IGST' ? $validated['igst'] : null,
                 'description' => $validated['description'],
                 'notes' => $validated['notes'],
+                'contact_person' => $validated['contact_person'],
                 'is_invoiced' => false,
             ]);
 
@@ -127,14 +129,13 @@ class DeliveryNoteController extends Controller
             }
 
             DB::commit();
-            
+
             // Return a success response for AJAX requests
             if ($request->wantsJson()) {
                 return response()->json(['success' => true, 'message' => 'Delivery note created successfully.']);
             }
             // Or redirect for standard form submissions
             return redirect()->route('delivery_notes.index')->with('success', 'Delivery note created successfully.');
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage(), 'errors' => $e->errors()], 422);
@@ -163,8 +164,8 @@ class DeliveryNoteController extends Controller
         $products = Product::all();
         $categories = Product::distinct()->pluck('category')->sort();
         $subcategories = Product::distinct()->pluck('subcategory')->sort();
-        $deliveryNote->load('items.product');
-        return view('delivery_notes.edit', compact('deliveryNote', 'customers', 'products', 'categories', 'subcategories'));
+        $deliveryNote->load('customer', 'items.product');
+        return view('delivery_notes.edit', compact('deliveryNote', 'customers', 'products', 'categories', 'subcategories',));
     }
 
     /**
@@ -232,6 +233,7 @@ class DeliveryNoteController extends Controller
             'ref_no' => 'nullable|string|max:255',
             'purchase_number' => 'required|string|max:255',
             'purchase_date' => 'required|date',
+            'contact_person' => 'nullable|string',
             'delivery_date' => 'required|date',
             'gst_type' => 'required|in:CGST,IGST',
             'cgst' => 'required_if:gst_type,CGST|nullable|numeric|min:0|max:100',
@@ -256,6 +258,7 @@ class DeliveryNoteController extends Controller
                 'ref_no' => $validated['ref_no'],
                 'purchase_number' => $validated['purchase_number'],
                 'purchase_date' => $validated['purchase_date'],
+                'contact_person' => $validated['contact_person'],
                 'gst_type' => $validated['gst_type'],
                 // Use data_get() to safely access keys, providing null as a default
                 'cgst' => data_get($validated, 'cgst'),

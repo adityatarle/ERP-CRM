@@ -98,6 +98,10 @@
                                     <input type="date" name="purchase_date" id="purchase_date" class="form-control" value="{{ date('Y-m-d') }}" required>
                                 </div>
                                 <div class="col-md-6">
+                                    <label for="contact_person" class="form-label">Contact Person</label>
+                                    <input type="text" name="contact_person" class="form-control" rows="2" required>
+                                </div>
+                                <div class="col-md-6">
                                     <label for="delivery_date" class="form-label">Delivery Date</label>
                                     <input type="date" name="delivery_date" id="delivery_date" class="form-control" value="{{ date('Y-m-d') }}" required>
                                 </div>
@@ -121,10 +125,10 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-12">
+                                <!-- <div class="col-12">
                                     <label for="description" class="form-label">Description</label>
                                     <textarea name="description" id="description" class="form-control" rows="3" placeholder="Add any additional notes or terms..."></textarea>
-                                </div>
+                                </div> -->
                                 <div class="col-12">
                                     <label for="notes" class="form-label">Notes</label>
                                     <textarea name="notes" id="notes" class="form-control" rows="2" placeholder="e.g., Vehicle number, contact person, etc."></textarea>

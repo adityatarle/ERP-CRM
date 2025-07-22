@@ -1,92 +1,41 @@
-<div class="items-table-wrapper">
-    <table class="table" style="margin-top: 10px;">
-        <thead>
-            <tr>
-                <th class="text-uppercase">Sr.<br />no</th>
-                <th class="text-uppercase" style="width: 40%;">Product Name</th>
-                <th class="text-uppercase text-end">HSN/SAC</th>
-                <th class="text-uppercase text-end">Qty</th>
-                <th class="text-uppercase text-end">Rate</th>
-                <th class="text-uppercase text-center">Per</th>
-                <th class="text-uppercase text-end">Disc %</th>
-                <th class="text-uppercase text-end">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            @php
-                $allItems = $invoice->sales->flatMap->saleItems;
-                $totalQuantity = $allItems->sum('quantity');
-                $minRows = 10;
-            @endphp
+@php
+    $minRows = 8;
+@endphp
 
-            @foreach($allItems as $index => $saleItem)
-                <tr>
-                    <td class="text-center">{{ $index + 1 }}</td>
-                    <td class="text-start">
-                        <b>{{ $saleItem->product->name }}</b>
-                        @if($saleItem->itemcode)<br /><small>{{ $saleItem->itemcode }}</small>@endif
-                        @if($saleItem->secondary_itemcode)<small>{{ $saleItem->secondary_itemcode }}</small>@endif
-                    </td>
-                    <td class="text-end">{{ $saleItem->product->hsn }}</td>
-                    <td class="text-end">{{ $saleItem->quantity }} NOS</td>
-                    <td class="text-end">{{ number_format($saleItem->unit_price, 2) }}</td>
-                    <td class="text-center">NOS</td>
-                    <td class="text-end">{{ number_format($saleItem->discount, 2) }}</td>
-                    <td class="text-end">{{ number_format($saleItem->total_price, 2) }}</td>
-                </tr>
-            @endforeach
-
-            {{-- Fill empty rows if items are less than minimum --}}
-            @for ($i = $allItems->count(); $i < $minRows; $i++)
-                <tr>
-                    <td> </td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                </tr>
-            @endfor
-
-            {{-- Spacer row before subtotal --}}
+<table class="items-table" style="margin-top: 10px;">
+    <thead>
+        <tr>
+            <th class="text-uppercase">Sr.<br />No</th>
+            <th style="width: 40%;">Product Name</th>
+            <th class="text-end">HSN/SAC</th>
+            <th class="text-end">Qty</th>
+            <th class="text-end">Rate</th>
+            <th class="text-end">Disc %</th>
+            <th class="text-end">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($items as $index => $saleItem)
             <tr>
-                <td colspan="8" style="height: 15px; border: none;"></td>
+                <td class="text-center">{{ $startIndex + $index + 1 }}</td>
+                <td class="text-start">
+                    <b>{{ $saleItem->product->name ?? '-' }}</b>
+                    @if($saleItem->itemcode)<br /><small>{{ $saleItem->itemcode }}</small>@endif
+                    @if($saleItem->secondary_itemcode)<small>{{ $saleItem->secondary_itemcode }}</small>@endif
+                </td>
+                <td class="text-end">{{ $saleItem->product->hsn ?? '-' }}</td>
+                <td class="text-end">{{ $saleItem->quantity ?? 0 }} NOS</td>
+                <td class="text-end">{{ number_format($saleItem->unit_price ?? 0, 2) }}</td>
+                <td class="text-end">{{ number_format($saleItem->discount ?? 0, 2) }}</td>
+                <td class="text-end">{{ number_format($saleItem->total_price ?? 0, 2) }}</td>
             </tr>
+        @endforeach
 
+        {{-- Empty filler rows --}}
+        @for ($i = $items->count(); $i < $minRows; $i++)
             <tr>
-                <td colspan="7" class="text-end font-bold">Subtotal</td>
-                <td class="text-end font-bold">{{ number_format($invoice->subtotal, 2) }}</td>
+                <td colspan="7">&nbsp;</td>
             </tr>
-
-            @if ($invoice->gst_type === 'IGST')
-                <tr>
-                    <td colspan="7" class="text-end">Add: IGST @ {{ $invoice->igst }}%</td>
-                    <td class="text-end">{{ number_format($invoice->tax, 2) }}</td>
-                </tr>
-            @else
-                <tr>
-                    <td colspan="7" class="text-end">Add: CGST @ {{ $invoice->cgst }}%</td>
-                    <td class="text-end">{{ number_format($invoice->subtotal * ($invoice->cgst / 100), 2) }}</td>
-                </tr>
-                <tr>
-                    <td colspan="7" class="text-end">Add: SGST @ {{ $invoice->sgst }}%</td>
-                    <td class="text-end">{{ number_format($invoice->subtotal * ($invoice->sgst / 100), 2) }}</td>
-                </tr>
-            @endif
-        </tbody>
-        <tfoot>
-            <tr>
-                <th colspan="3" class="text-uppercase text-end">Total</th>
-                <th class="text-center">{{ $totalQuantity }} NOS</th>
-                <th colspan="3"></th>
-                <th class="text-end">{{ number_format($invoice->total, 2) }}/-</th>
-            </tr>
-            <tr>
-                <td colspan="7">Amount (In Words): <b>INR {{ $amount_in_words ?? '' }} Rupees Only</b></td>
-                <td class="text-end">E. & OE.</td>
-            </tr>
-        </tfoot>
-    </table>
-</div>
+        @endfor
+    </tbody>
+</table>

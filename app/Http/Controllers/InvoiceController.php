@@ -107,6 +107,7 @@ class InvoiceController extends Controller
                 'description' => 'nullable|string',
                 'purchase_number' => 'required|string|max:255',
                 'purchase_date' => 'required|date',
+                'contact_person' => 'nullable|string',
             ]);
 
             $totalSalePrice = 0;
@@ -203,6 +204,7 @@ class InvoiceController extends Controller
             $invoiceData = [
                 'invoice_number' => 'INV-' . strtoupper(uniqid()),
                 'customer_id' => $validated['customer_id'],
+                'contact_person' => $validated['contact_person'],
                 'subtotal' => $subtotal,
                 'tax' => $gstAmount,
                 'gst' => $gstRate,
@@ -254,17 +256,20 @@ class InvoiceController extends Controller
     }
 
 // In app/Http/Controllers/InvoiceController.php
+// In your InvoiceController.php
+// In your InvoiceController.php
 
 public function generatePDF(Invoice $invoice)
 {
+    // Eager load all necessary relationships
     $invoice->load(['customer', 'sales.saleItems.product']);
 
-    // Pass all company details to the view
+    // --- Data Preparation ---
     $company = [
         'name' => 'MAULI SOLUTIONS',
         'address' => 'Gat No-627, Pune-Nashik Highway, IN Front Off Gabriel, Vitthal-Muktai Complex, Kuruli Chakan, Pune-410501',
         'contact' => 'Mob-9284716150/9158506948',
-        'udyam' => 'UDYAM-MH-26-0484571 (Small)', // New Field
+        'udyam' => 'UDYAM-MH-26-0484571 (Small)',
         'gstin' => '27ABIFM9220D1ZC',
         'state' => 'Maharashtra, Code: 27',
         'email' => 'maulisolutions18@gmail.com',
@@ -275,11 +280,28 @@ public function generatePDF(Invoice $invoice)
         'ifsc_code' => 'ICIC0004103',
     ];
 
-    // Your existing logic for amounts in words and labels
+    // Get all items in a single collection. NO MORE CHUNKING.
+    $allItems = $invoice->sales->flatMap->saleItems;
+
+    // Calculate the HSN summary for the entire invoice
+    $hsnSummary = [];
+    foreach ($allItems as $item) {
+        $hsn = $item->product->hsn;
+        if (!isset($hsnSummary[$hsn])) {
+            $hsnSummary[$hsn] = [
+                'taxable_value' => 0,
+                'cgst_rate' => $invoice->cgst,
+                'sgst_rate' => $invoice->sgst,
+                'igst_rate' => $invoice->igst,
+            ];
+        }
+        $hsnSummary[$hsn]['taxable_value'] += $item->total_price;
+    }
+
+    $totalQuantity = $allItems->sum('quantity');
     $amount_in_words = function_exists('numberToWords') ? numberToWords(round($invoice->total)) : '';
     $tax_amount_in_words = function_exists('numberToWords') ? numberToWords(round($invoice->tax)) : '';
-    
-    // THE FIX: More descriptive labels
+
     $label = match ($invoice->download_count) {
         0 => 'ORIGINAL FOR BUYER',
         1 => 'DUPLICATE FOR TRANSPORTER',
@@ -288,12 +310,24 @@ public function generatePDF(Invoice $invoice)
     };
     $invoice->increment('download_count');
 
-    $data = compact('invoice', 'company', 'amount_in_words', 'tax_amount_in_words', 'label');
-    
-    $pdf = PDF::loadView('invoices.pdf', $data);
+    // --- PDF Generation ---
+    // Pass the full $allItems collection to the view
+    $data = compact(
+        'invoice', 
+        'company', 
+        'label',
+        'allItems',
+        'hsnSummary',
+        'totalQuantity',
+        'amount_in_words',
+        'tax_amount_in_words'
+    );
+
+    // Load the new, continuous-flow view
+    $pdf = PDF::loadView('invoices.pdf', $data); 
+
     return $pdf->download('invoice-' . $invoice->invoice_number . '-' . $label . '.pdf');
 }
-
     // REMOVED: The following two methods, pendingInvoices() and approve(), are no longer needed
     // because the approval workflow has been removed. I have commented them out. You can also delete them.
     /*

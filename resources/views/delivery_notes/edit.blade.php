@@ -170,6 +170,10 @@
                                     <input type="date" name="purchase_date" id="purchase_date" class="form-control" value="{{ $deliveryNote->purchase_date }}" required>
                                 </div>
                                 <div class="col-md-6">
+                                    <label for="contact_person" class="form-label">Contact Person</label>
+                                    <input type="text" name="contact_person" id="contact_person" class="form-control" placeholder="Enter contact person name" value="{{ $deliveryNote->contact_person }}" required>
+                                </div>
+                                <div class="col-md-6">
                                     <label for="delivery_date" class="form-label">Delivery Date</label>
                                     <input type="date" name="delivery_date" id="delivery_date" class="form-control" value="{{ $deliveryNote->delivery_date }}" required>
                                 </div>

@@ -16,6 +16,7 @@ class DeliveryNote extends Model
         'delivery_date',
         'gst_type',
         'cgst',
+        'contact_person',
         'sgst',
         'igst',
         'description',
