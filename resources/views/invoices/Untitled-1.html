@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Delivery Note - {{ $deliveryNote->delivery_note_number }}</title>
+    <style>
+        @font-face {
+            font-family: 'DejaVu Sans';
+            src: url('{{ storage_path(' fonts/DejaVuSans.ttf') }}') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'DejaVu Sans';
+            src: url('{{ storage_path(' fonts/DejaVuSans-Bold.ttf') }}') format('truetype');
+            font-weight: bold;
+            font-style: normal;
+        }
+
+        @page {
+            margin: 200px 50px 100px 50px;
+        }
+
+        body {
+            font-family: 'DejaVu Sans', sans-serif;
+            color: #000;
+            font-size: 11px;
+            margin: 0;
+        }
+
+        .header {
+            position: fixed;
+            top: -180px;
+            left: 0;
+            right: 0;
+            width: 100%;
+        }
+
+        .header-table td {
+            border: none;
+            vertical-align: top;
+        }
+
+        .header-line {
+            border-top: 1px solid #000;
+            margin: 5px 0 10px;
+        }
+
+        .text-bold {
+            font-weight: bold;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-left {
+            text-align: left;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td,
+        th {
+            border: 1px solid #000;
+            padding: 5px;
+            vertical-align: top;
+        }
+
+        .no-border td,
+        .no-border th {
+            border: none;
+        }
+
+        .product-name {
+            font-weight: bold;
+        }
+
+        .product-code {
+            font-size: 10px;
+            color: #555;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0px;
+            left: 0;
+            right: 0;
+            font-size: 11px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ========== FIXED HEADER ========== -->
+    <header class="header">
+        <div class="text-center text-bold" style="font-size: 18px;">DELIVERY NOTE</div>
+        <table class="header-table" style="margin-top: 10px;">
+            <tr>
+                <td style="width: 60%;">
+                    <table class="no-border">
+                        <tr>
+                            <td style="width: 70px;">
+                                <img src="{{ public_path('images/logo.png') }}" height="50">
+                            </td>
+                            <td>
+                                <div class="text-bold" style="font-size: 13px;">{{ $company['name'] }}</div>
+                                <div>{{ $company['address'] }}</div>
+                                <div>Mob: {{ $company['contact'] }}</div>
+                                <div>GSTIN/UIN: {{ $company['gstin'] }}</div>
+                                <div>State: {{ $company['state'] }}</div>
+                                <div>Email: {{ $company['email'] }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="width: 40%;">
+                    <table class="no-border">
+                        <tr>
+                            <td class="text-bold">Delivery Note No.:</td>
+                            <td>{{ $deliveryNote->delivery_note_number }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-bold">Dated:</td>
+                            <td>{{ \Carbon\Carbon::parse($deliveryNote->delivery_date)->format('d-M-Y') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-bold">Reference No.:</td>
+                            <td>{{ $deliveryNote->ref_no ?? 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-bold">Buyer Order No.:</td>
+                            <td>{{ $deliveryNote->purchase_number }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-bold">Dated:</td>
+                            <td>{{ \Carbon\Carbon::parse($deliveryNote->purchase_date)->format('d-M-Y') }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <div class="header-line"></div>
+
+
+    </header>
+    <table class="no-border">
+        <tr>
+            <td>
+                <span class="text-bold">Buyer (Bill To):</span><br>
+                <div class="text-bold">{{ $deliveryNote->customer->name }}</div>
+                <div>{{ $deliveryNote->customer->address }}</div>
+                <div>GSTIN/UIN: {{ $deliveryNote->customer->gst_number }}</div>
+                <div>State: Maharashtra, Code: 27</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- ========== MAIN BODY ========== -->
+    <main style="margin-top: 10px;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 5%;" class="text-center">Sl No.</th>
+                    <th style="width: 40%;">Description of Goods</th>
+                    <th style="width: 15%;" class="text-center">HSN/SAC</th>
+                    <th style="width: 10%;" class="text-center">Qty</th>
+                    <th style="width: 10%;" class="text-right">Rate</th>
+                    <th style="width: 5%;" class="text-center">Per</th>
+                    <th style="width: 5%;" class="text-center">Disc %</th>
+                    <th style="width: 10%;" class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($deliveryNote->items as $index => $item)
+                <tr>
+                    <td class="text-center">{{ $index + 1 }}</td>
+                    <td>
+                        <div class="product-name">{{ $item->product->name }}</div>
+                        <div class="product-code">
+                            {{ implode(' | ', array_filter([$item->itemcode, $item->secondary_itemcode])) }}
+                        </div>
+                    </td>
+                    <td class="text-center">{{ $item->product->hsn ?? 'N/A' }}</td>
+                    <td class="text-center">{{ $item->quantity }} NOS</td>
+                    <td class="text-right">{{ number_format($item->price, 2) }}</td>
+                    <td class="text-center">NOS</td>
+                    <td class="text-center">{{ number_format($item->discount, 2) }}</td>
+                    <td class="text-right">
+                        {{ number_format($item->quantity * $item->price * (1 - ($item->discount ?? 0) / 100), 2) }}
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        <!-- Totals Table -->
+        <table style="margin-top: 10px;">
+            <tr>
+                <td rowspan="4" colspan="6" style="vertical-align: top; text-align: left;">
+                    <span class="text-bold">Tax Amount (in words):</span> NIL
+                </td>
+                <td class="text-bold text-left">Subtotal</td>
+                <td class="text-right">{{ number_format($subtotal, 2) }}</td>
+            </tr>
+            @if ($totalCgst > 0 || $totalSgst > 0)
+            <tr>
+                <td class="text-left">CGST @ {{ $deliveryNote->cgst ?? 9 }}%</td>
+                <td class="text-right">{{ number_format($totalCgst, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">SGST @ {{ $deliveryNote->sgst ?? 9 }}%</td>
+                <td class="text-right">{{ number_format($totalSgst, 2) }}</td>
+            </tr>
+            @endif
+            @if ($totalIgst > 0)
+            <tr>
+                <td class="text-left">IGST @ {{ $deliveryNote->igst ?? 18 }}%</td>
+                <td class="text-right">{{ number_format($totalIgst, 2) }}</td>
+            </tr>
+            @endif
+            <tr>
+                <td class="text-bold text-left">Total</td>
+                <td class="text-bold text-right">₹ {{ number_format($grandTotal, 2) }}</td>
+            </tr>
+        </table>
+
+        <!-- Summary Table -->
+        <table style="margin-top: 10px;">
+            <tr>
+                <td class="text-bold" colspan="2">Total</td>
+                <td class="text-center text-bold">{{ $totalQuantity }} NOS</td>
+                <td colspan="4"></td>
+                <td class="text-right text-bold">E. & O.E</td>
+            </tr>
+            <tr>
+                <td class="text-bold" colspan="2">HSN/SAC</td>
+                <td class="text-center">{{ $deliveryNote->items->pluck('product.hsn')->unique()->implode(', ') }}</td>
+                <td colspan="3"></td>
+                <td class="text-bold">Taxable Value</td>
+                <td>{{ number_format($subtotal, 2) }}</td>
+            </tr>
+        </table>
+
+        <!-- Notes and Footer -->
+        @if($deliveryNote->notes || $deliveryNote->description)
+        <table style="margin-top: 10px;">
+            <tr>
+                <td>
+                    @if($deliveryNote->notes)
+                    <p><span class="text-bold">Notes:</span> {{ $deliveryNote->notes }}</p>
+                    @endif
+                    @if($deliveryNote->description)
+                    <p><span class="text-bold">Description:</span> {{ $deliveryNote->description }}</p>
+                    @endif
+                </td>
+            </tr>
+        </table>
+        @endif
+
+        <table class="no-border" style="margin-top: 30px;">
+            <tr>
+                <td style="width: 50%;">
+                    <span class="text-bold">Company's PAN:</span> {{ $company['pan'] }}<br><br>
+                    Recd. in Good Condition<br><br>
+                    This is a Computer Generated Document
+                </td>
+                <td style="width: 50%;" class="text-right">
+                    for <span class="text-bold">{{ $company['name'] }}</span><br><br><br><br>
+                    Authorised Signatory
+                </td>
+            </tr>
+        </table>
+
+    </main>
+</body>
+
+</html>
+dnajbasdkbckjdsbkssdkcjkdckds
