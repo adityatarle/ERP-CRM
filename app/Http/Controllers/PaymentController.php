@@ -24,11 +24,17 @@ class PaymentController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'party_search' => 'nullable|string|max:255',
+            'invoice_search' => 'nullable|string|max:255',
+            'invoice_date_from' => 'nullable|date',
+            'invoice_date_to' => 'nullable|date|after_or_equal:invoice_date_from',
         ]);
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
         $party_search = $request->input('party_search');
+        $invoice_search = $request->input('invoice_search');
+        $invoice_date_from = $request->input('invoice_date_from');
+        $invoice_date_to = $request->input('invoice_date_to');
 
         // Start building the query
         $query = Payable::with(['purchaseEntry', 'party'])->where('is_paid', false);
@@ -38,6 +44,16 @@ class PaymentController extends Controller
             $query->whereHas('party', function ($q) use ($party_search) {
                 $q->where('name', 'like', '%' . $party_search . '%');
             });
+        }
+
+        // Apply invoice number filter if provided
+        if ($invoice_search) {
+            $query->where('invoice_number', 'like', '%' . $invoice_search . '%');
+        }
+
+        // Apply invoice date range filter if both dates are provided
+        if ($invoice_date_from && $invoice_date_to) {
+            $query->whereBetween('invoice_date', [$invoice_date_from, $invoice_date_to]);
         }
 
         // Apply date range filter if both dates are provided
@@ -52,7 +68,7 @@ class PaymentController extends Controller
         // This is needed for the "Record Payment" modal dropdown
         $parties = Party::orderBy('name')->get();
 
-        return view('payments.payables.index', compact('payables', 'parties', 'startDate', 'endDate', 'party_search'));
+        return view('payments.payables.index', compact('payables', 'parties', 'startDate', 'endDate', 'party_search', 'invoice_search', 'invoice_date_from', 'invoice_date_to'));
     }
 
     public function exportPayables(Request $request)
@@ -60,10 +76,13 @@ class PaymentController extends Controller
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
         $party_search = $request->input('party_search');
+        $invoice_search = $request->input('invoice_search');
+        $invoice_date_from = $request->input('invoice_date_from');
+        $invoice_date_to = $request->input('invoice_date_to');
 
         // Validate that at least one filter is provided
-        if (!$startDate && !$endDate && !$party_search) {
-            return redirect()->route('payables')->withErrors(['filter' => 'Please provide at least a party name or a date range to export.']);
+        if (!$startDate && !$endDate && !$party_search && !$invoice_search && !$invoice_date_from && !$invoice_date_to) {
+            return redirect()->route('payables')->withErrors(['filter' => 'Please provide at least one filter to export.']);
         }
 
         // Validate date range if provided
@@ -71,13 +90,21 @@ class PaymentController extends Controller
             return redirect()->route('payables')->withErrors(['end_date' => 'End date must be after start date.']);
         }
 
+        // Validate invoice date range if provided
+        if ($invoice_date_from && $invoice_date_to && $invoice_date_to < $invoice_date_from) {
+            return redirect()->route('payables')->withErrors(['invoice_date_to' => 'Invoice end date must be after start date.']);
+        }
+
         Log::info('Exporting payables with filters', [
             'start_date' => $startDate,
             'end_date' => $endDate,
             'party_search' => $party_search,
+            'invoice_search' => $invoice_search,
+            'invoice_date_from' => $invoice_date_from,
+            'invoice_date_to' => $invoice_date_to,
         ]);
 
-        return Excel::download(new PayablesExport($startDate, $endDate, $party_search), 'payables_' . now()->format('Y-m-d') . '.xlsx');
+        return Excel::download(new PayablesExport($startDate, $endDate, $party_search, $invoice_search, $invoice_date_from, $invoice_date_to), 'payables_' . now()->format('Y-m-d') . '.xlsx');
     }
 
     public function create()
@@ -96,6 +123,8 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'notes' => 'nullable|string',
             'bank_name' => 'nullable|string|max:255',
+            'invoice_number' => 'nullable|string|max:255',
+            'invoice_date' => 'nullable|date',
         ]);
 
         $purchaseEntries = json_decode($request->purchase_entry_ids, true);
@@ -157,11 +186,20 @@ class PaymentController extends Controller
                     'type' => 'payable',
                 ]);
 
-                // Update payable amount
+                // Update payable amount and invoice information
                 $payable->amount -= $paymentAmount;
                 if ($payable->amount <= 0.01) {
                     $payable->is_paid = true;
                 }
+                
+                // Update invoice information if provided
+                if ($request->invoice_number) {
+                    $payable->invoice_number = $request->invoice_number;
+                }
+                if ($request->invoice_date) {
+                    $payable->invoice_date = $request->invoice_date;
+                }
+                
                 $payable->save();
             }
         });
