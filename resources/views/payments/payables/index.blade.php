@@ -62,19 +62,33 @@
                     <div class="filter-section p-3 mb-4">
                         <form method="GET" action="{{ route('payables') }}" id="filterForm">
                             <div class="row g-3 align-items-end">
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label for="party_search" class="form-label small">Party Name</label>
                                     <input type="text" name="party_search" id="party_search" class="form-control form-control-sm" value="{{ $party_search ?? '' }}" placeholder="Enter party name">
                                 </div>
-                                <div class="col-md-3">
-                                    <label for="start_date" class="form-label small">Start Date</label>
+                                <div class="col-md-2">
+                                    <label for="invoice_search" class="form-label small">Invoice Number</label>
+                                    <input type="text" name="invoice_search" id="invoice_search" class="form-control form-control-sm" value="{{ $invoice_search ?? '' }}" placeholder="Enter invoice number">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="start_date" class="form-label small">Purchase Start Date</label>
                                     <input type="date" name="start_date" id="start_date" class="form-control form-control-sm" value="{{ $startDate ?? '' }}">
                                 </div>
-                                <div class="col-md-3">
-                                    <label for="end_date" class="form-label small">End Date</label>
+                                <div class="col-md-2">
+                                    <label for="end_date" class="form-label small">Purchase End Date</label>
                                     <input type="date" name="end_date" id="end_date" class="form-control form-control-sm" value="{{ $endDate ?? '' }}">
                                 </div>
-                                <div class="col-md-3 d-flex justify-content-start align-items-end gap-2">
+                                <div class="col-md-2">
+                                    <label for="invoice_date_from" class="form-label small">Invoice Start Date</label>
+                                    <input type="date" name="invoice_date_from" id="invoice_date_from" class="form-control form-control-sm" value="{{ $invoice_date_from ?? '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="invoice_date_to" class="form-label small">Invoice End Date</label>
+                                    <input type="date" name="invoice_date_to" id="invoice_date_to" class="form-control form-control-sm" value="{{ $invoice_date_to ?? '' }}">
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12 d-flex justify-content-start align-items-end gap-2">
                                     <button type="submit" class="btn btn-primary btn-sm"><i class="fa fa-filter"></i> Filter</button>
                                     <a href="{{ route('payables') }}" class="btn btn-secondary btn-sm"><i class="fa fa-times"></i> Clear</a>
                                     <button type="button" class="btn btn-success btn-sm" onclick="exportToExcel()"><i class="fa fa-file-excel"></i> Export</button>
@@ -91,6 +105,8 @@
                                     <th class="ps-3">Purchase #</th>
                                     <th>Party</th>
                                     <th>Purchase Date</th>
+                                    <th>Invoice #</th>
+                                    <th>Invoice Date</th>
                                     <th class="text-end">Amount</th>
                                     <th class="text-center">Status</th>
                                 </tr>
@@ -110,6 +126,8 @@
                                         </td>
                                         <td>{{ $payable->party->name ?? 'N/A' }}</td>
                                         <td>{{ $payable->purchaseEntry ? \Carbon\Carbon::parse($payable->purchaseEntry->purchase_date)->format('d M, Y') : 'N/A' }}</td>
+                                        <td>{{ $payable->invoice_number ?? '-' }}</td>
+                                        <td>{{ $payable->invoice_date ? \Carbon\Carbon::parse($payable->invoice_date)->format('d M, Y') : '-' }}</td>
                                         <td class="text-end">₹{{ number_format($payable->amount, 2) }}</td>
                                         <td class="text-center">
                                             @if($payable->is_paid)
@@ -121,7 +139,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-center p-4">No payables found.</td>
+                                        <td colspan="7" class="text-center p-4">No payables found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -179,6 +197,20 @@
                             </div>
                             <input type="hidden" name="purchase_entry_ids" id="purchase_entry_ids" value="[]">
                             @error('purchase_entry_ids')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="mb-3">
+                            <label for="invoice_number" class="form-label">Invoice Number</label>
+                            <input type="text" name="invoice_number" id="invoice_number" class="form-control" placeholder="Enter invoice number">
+                            @error('invoice_number')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="mb-3">
+                            <label for="invoice_date" class="form-label">Invoice Date</label>
+                            <input type="date" name="invoice_date" id="invoice_date" class="form-control">
+                            @error('invoice_date')
                                 <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
@@ -392,15 +424,21 @@
             const startDate = document.getElementById('start_date').value;
             const endDate = document.getElementById('end_date').value;
             const partySearch = document.getElementById('party_search').value;
+            const invoiceSearch = document.getElementById('invoice_search').value;
+            const invoiceDateFrom = document.getElementById('invoice_date_from').value;
+            const invoiceDateTo = document.getElementById('invoice_date_to').value;
 
             let exportUrl = `{{ route("payables.export") }}`;
             const params = new URLSearchParams();
             if (startDate) params.append('start_date', startDate);
             if (endDate) params.append('end_date', endDate);
             if (partySearch) params.append('party_search', partySearch);
+            if (invoiceSearch) params.append('invoice_search', invoiceSearch);
+            if (invoiceDateFrom) params.append('invoice_date_from', invoiceDateFrom);
+            if (invoiceDateTo) params.append('invoice_date_to', invoiceDateTo);
 
-            if (!startDate && !endDate && !partySearch) {
-                alert('Please provide at least a party name or a date range to export.');
+            if (!startDate && !endDate && !partySearch && !invoiceSearch && !invoiceDateFrom && !invoiceDateTo) {
+                alert('Please provide at least one filter to export.');
                 return;
             }
 

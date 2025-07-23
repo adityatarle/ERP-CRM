@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payable extends Model
 {
-    protected $fillable = ['purchase_entry_id', 'party_id', 'amount', 'is_paid'];
+    protected $fillable = ['purchase_entry_id', 'party_id', 'amount', 'is_paid', 'invoice_number', 'invoice_date'];
+
+    protected $casts = [
+        'invoice_date' => 'date',
+        'is_paid' => 'boolean',
+    ];
 
     public function purchaseEntry()
     {
