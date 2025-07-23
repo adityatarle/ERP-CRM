@@ -431,25 +431,28 @@ class PaymentController extends Controller
             return response()->json([]);
         }
 
-        // Fetch unpaid sales for the given customer
-        $unpaidSales = Sale::whereIn('id', Receivable::where('is_paid', false)
-            ->where('customer_id', $customerId)
-            ->pluck('sale_id'))
-            ->get();
+        try {
+            // Fetch unpaid receivables for the given customer
+            $unpaidReceivables = Receivable::where('is_paid', false)
+                ->where('customer_id', $customerId)
+                ->with('sale')
+                ->get();
 
-        // Map the sales to include the amount to be paid
-        $salesWithAmount = $unpaidSales->map(function ($sale) {
-            $receivable = Receivable::where('sale_id', $sale->id)
-                ->where('is_paid', false)
-                ->first();
-            return [
-                'id' => $sale->id,
-                'ref_no' => $sale->ref_no,
-                'amount' => $receivable ? $receivable->amount : 0,
-            ];
-        })->toArray();
+            // Map the receivables to include the sale information
+            $salesWithAmount = $unpaidReceivables->map(function ($receivable) {
+                $sale = $receivable->sale;
+                return [
+                    'id' => $sale ? $sale->id : $receivable->id,
+                    'ref_no' => $sale ? $sale->ref_no : 'Sale ID: ' . $receivable->sale_id,
+                    'amount' => $receivable->amount,
+                ];
+            })->toArray();
 
-        return response()->json($salesWithAmount);
+            return response()->json($salesWithAmount);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch sales'], 500);
+        }
     }
 
    public function getPurchaseEntriesByParty(Request $request)

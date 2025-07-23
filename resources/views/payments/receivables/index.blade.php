@@ -138,32 +138,33 @@
                 <form action="{{ route('receivables.store') }}" method="POST" id="receivablePaymentForm">
                     @csrf
                     <div class="mb-3">
-                        <label for="modal_amount" class="form-label">Amount Received</label>
+                        <label for="modal_amount" class="form-label">Amount Received <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <span class="input-group-text">₹</span>
-                            <input type="number" name="amount" id="modal_amount" class="form-control" step="0.01" min="0.01" required oninput="validateAmount()">
+                            <input type="number" name="amount" id="modal_amount" class="form-control" step="0.01" min="0.01" required oninput="validateAmount()" placeholder="Enter received amount">
                         </div>
-                        <small class="text-muted" id="amount-to-be-paid"></small>
+                        <small class="text-muted" id="amount-to-be-paid">Please enter the amount received from customer.</small>
                         @error('amount')
                             <div class="text-danger">{{ $message }}</div>
                         @enderror
                     </div>
                     <div class="mb-3">
-                        <label for="modal_customer_id" class="form-label">Customer</label>
+                        <label for="modal_customer_id" class="form-label">Customer <span class="text-danger">*</span></label>
                         <select name="customer_id" id="modal_customer_id" class="form-select" required onchange="fetchSales()">
                             <option value="">Select a Customer</option>
                             @foreach($customers as $customer)
                                 <option value="{{ $customer->id }}">{{ $customer->name }}</option>
                             @endforeach
                         </select>
+                        <small class="text-muted">Select the customer who made the payment.</small>
                         @error('customer_id')
                             <div class="text-danger">{{ $message }}</div>
                         @enderror
                     </div>
                     <div class="mb-3">
-                        <label for="sales-list" class="form-label">Unpaid Sales/Invoices</label>
-                        <div id="sales-list">
-                            <p class="text-muted">Select a customer to view unpaid sales/invoices.</p>
+                        <label for="sales-list" class="form-label fw-bold">Unpaid Sales/Invoices</label>
+                        <div id="sales-list" class="border rounded p-3" style="min-height: 100px; background-color: #f8f9fa;">
+                            <p class="text-muted mb-0">Select a customer and enter an amount to view unpaid sales/invoices.</p>
                         </div>
                         <input type="hidden" name="sale_ids" id="sale_ids" value="[]">
                         @error('sale_ids')
@@ -239,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const customerDropdown = document.getElementById('modal_customer_id');
         const hiddenInput = document.getElementById('sale_ids');
 
-        salesList.innerHTML = '<p class="text-muted">Select a customer to view unpaid sales/invoices.</p>';
+        salesList.innerHTML = '<p class="text-muted mb-0">Select a customer and enter an amount to view unpaid sales/invoices.</p>';
         customerDropdown.value = '';
         hiddenInput.value = '[]';
         submitButton.disabled = true;
@@ -261,14 +262,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const submitButton = document.getElementById('submit-payment-btn');
         const hiddenInput = document.getElementById('sale_ids');
 
-        salesList.innerHTML = '<p class="text-muted">Loading...</p>';
+        salesList.innerHTML = '<p class="text-muted">Loading unpaid sales/invoices...</p>';
         amountToBePaidSpan.textContent = enteredAmount > 0 ? `Entered Amount: ₹${enteredAmount.toFixed(2)}` : 'Please enter a valid amount.';
         hiddenInput.value = '[]';
         salesData = [];
         submitButton.disabled = true;
 
         if (!customerId || enteredAmount <= 0) {
-            salesList.innerHTML = '<p class="text-muted">Please enter an amount and select a customer.</p>';
+            salesList.innerHTML = '<p class="text-muted">Please enter an amount and select a customer to view unpaid sales/invoices.</p>';
             return;
         }
 
@@ -285,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function () {
             hiddenInput.value = '[]';
 
             if (data.length === 0) {
-                salesList.innerHTML = '<p class="text-muted">No unpaid sales/invoices found.</p>';
+                salesList.innerHTML = '<p class="text-muted">No unpaid sales/invoices found for this customer.</p>';
                 submitButton.disabled = true;
                 amountToBePaidSpan.textContent = `Entered Amount: ₹${enteredAmount.toFixed(2)}`;
                 return;
@@ -294,20 +295,26 @@ document.addEventListener('DOMContentLoaded', function () {
             let totalOutstanding = data.reduce((sum, sale) => sum + parseFloat(sale.amount), 0);
 
             // Create table for sales with checkboxes
-            const table = document.createElement('table');
-            table.className = 'table table-sm table-bordered';
-            table.innerHTML = `
-                <thead>
-                    <tr>
-                        <th><input type="checkbox" id="select-all-sales" onchange="toggleSelectAll()"></th>
-                        <th>Ref. Number</th>
-                        <th>Outstanding</th>
-                        <th>Payment Amount</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
+            const tableContainer = document.createElement('div');
+            tableContainer.innerHTML = `
+                <div class="alert alert-info alert-sm mb-3">
+                    <strong>Instructions:</strong> Select the sales/invoices you want to apply payment to and enter the payment amount for each.
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="50"><input type="checkbox" id="select-all-sales" onchange="toggleSelectAll()" title="Select All"></th>
+                                <th>Reference Number</th>
+                                <th width="120">Outstanding Amount</th>
+                                <th width="150">Payment Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-tbody"></tbody>
+                    </table>
+                </div>
             `;
-            const tbody = table.querySelector('tbody');
+            const tbody = tableContainer.querySelector('#sales-tbody');
 
             data.forEach(sale => {
                 const row = document.createElement('tr');
@@ -320,12 +327,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 tbody.appendChild(row);
             });
 
-            salesList.appendChild(table);
+            salesList.appendChild(tableContainer);
             amountToBePaidSpan.textContent = `Total Outstanding: ₹${totalOutstanding.toFixed(2)}. Entered Amount: ₹${enteredAmount.toFixed(2)}.`;
         })
         .catch(error => {
             console.error('Error fetching sales:', error);
-            salesList.innerHTML = '<p class="text-danger">Error loading sales.</p>';
+            salesList.innerHTML = '<p class="text-danger">Error loading sales/invoices. Please try again or contact support.</p>';
             submitButton.disabled = true;
         });
     }
