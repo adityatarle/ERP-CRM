@@ -164,7 +164,7 @@
                     <div class="mb-3">
                         <label for="sales-list" class="form-label fw-bold">Unpaid Invoices/Sales</label>
                         <div id="sales-list" class="border rounded p-3" style="min-height: 100px; background-color: #f8f9fa;">
-                            <p class="text-muted mb-0">Select a customer and enter an amount to view unpaid invoices/sales.</p>
+                            <p class="text-muted mb-0">Select a customer to view unpaid invoices/sales.</p>
                         </div>
                         <input type="hidden" name="receivable_ids" id="receivable_ids" value="[]">
                         @error('receivable_ids')
@@ -240,8 +240,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const customerDropdown = document.getElementById('modal_customer_id');
         const hiddenInput = document.getElementById('receivable_ids');
 
-        salesList.innerHTML = '<p class="text-muted mb-0">Select a customer and enter an amount to view unpaid invoices/sales.</p>';
-        customerDropdown.value = '';
+        // Don't clear the customer selection or sales list when amount changes
+        // salesList.innerHTML = '<p class="text-muted mb-0">Select a customer to view unpaid invoices/sales.</p>';
+        // customerDropdown.value = '';
         hiddenInput.value = '[]';
         submitButton.disabled = true;
         document.getElementById('deduct_tds').checked = false;
@@ -252,6 +253,10 @@ document.addEventListener('DOMContentLoaded', function () {
             amountToBePaidSpan.textContent = 'Please enter a valid amount greater than 0.';
         } else {
             amountToBePaidSpan.textContent = `Entered Amount: ₹${enteredAmount.toFixed(2)}`;
+            // If there are already displayed sales/invoices, update the allocation
+            if (salesData && salesData.length > 0) {
+                updateSelectedReceivables();
+            }
         }
     }
 
@@ -268,16 +273,25 @@ document.addEventListener('DOMContentLoaded', function () {
         salesData = [];
         submitButton.disabled = true;
 
-        if (!customerId || enteredAmount <= 0) {
-            salesList.innerHTML = '<p class="text-muted">Please enter an amount and select a customer to view unpaid invoices/sales.</p>';
+        if (!customerId) {
+            salesList.innerHTML = '<p class="text-muted">Please select a customer to view unpaid invoices/sales.</p>';
             return;
         }
 
         fetch(`{{ route("receivables.getSalesByCustomer") }}?customer_id=${customerId}`, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            headers: { 
+                'X-Requested-With': 'XMLHttpRequest', 
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
         })
         .then(response => {
-            if (!response.ok) throw new Error('Failed to fetch sales');
+            if (response.status === 401) {
+                throw new Error('Authentication required. Please log in to access this feature.');
+            }
+            if (!response.ok) {
+                throw new Error(`Failed to fetch invoices/sales (${response.status})`);
+            }
             return response.json();
         })
         .then(data => {
@@ -334,7 +348,11 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(error => {
             console.error('Error fetching invoices/sales:', error);
-            salesList.innerHTML = '<p class="text-danger">Error loading invoices/sales. Please try again or contact support.</p>';
+            if (error.message.includes('Authentication required')) {
+                salesList.innerHTML = '<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Please log in to view unpaid invoices/sales.</p>';
+            } else {
+                salesList.innerHTML = '<p class="text-danger"><i class="fas fa-exclamation-circle"></i> Error loading invoices/sales: ' + error.message + '</p>';
+            }
             submitButton.disabled = true;
         });
     }
