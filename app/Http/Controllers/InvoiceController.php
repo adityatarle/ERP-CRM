@@ -205,6 +205,8 @@ class InvoiceController extends Controller
                 'invoice_number' => 'INV-' . strtoupper(uniqid()),
                 'customer_id' => $validated['customer_id'],
                 'contact_person' => $validated['contact_person'],
+                'issue_date' => now()->toDateString(),
+                'due_date' => now()->addDays($creditDays)->toDateString(),
                 'subtotal' => $subtotal,
                 'tax' => $gstAmount,
                 'gst' => $gstRate,
@@ -243,8 +245,21 @@ class InvoiceController extends Controller
             Log::error('Invoice creation validation failed', ['errors' => $e->errors(), 'request_data' => $request->all()]);
             return response()->json(['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Invoice creation failed', ['error' => $e->getMessage(), 'request_data' => $request->all()]);
-            return response()->json(['success' => false, 'message' => 'An error occurred while creating the invoice.'], 500);
+            Log::error('Invoice creation failed', [
+                'error' => $e->getMessage(), 
+                'trace' => $e->getTraceAsString(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'request_data' => $request->all()
+            ]);
+            return response()->json([
+                'success' => false, 
+                'message' => 'An error occurred while creating the invoice: ' . $e->getMessage(),
+                'debug' => [
+                    'line' => $e->getLine(),
+                    'file' => basename($e->getFile())
+                ]
+            ], 500);
         }
     }
 
