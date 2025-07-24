@@ -164,7 +164,7 @@
                     <div class="mb-3">
                         <label for="sales-list" class="form-label fw-bold">Unpaid Invoices/Sales</label>
                         <div id="sales-list" class="border rounded p-3" style="min-height: 100px; background-color: #f8f9fa;">
-                            <p class="text-muted mb-0">Select a customer to view unpaid invoices/sales.</p>
+                            <p class="text-muted mb-0">Enter an amount and select a customer to view unpaid invoices/sales.</p>
                         </div>
                         <input type="hidden" name="receivable_ids" id="receivable_ids" value="[]">
                         @error('receivable_ids')
@@ -240,9 +240,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const customerDropdown = document.getElementById('modal_customer_id');
         const hiddenInput = document.getElementById('receivable_ids');
 
-        // Don't clear the customer selection or sales list when amount changes
-        // salesList.innerHTML = '<p class="text-muted mb-0">Select a customer to view unpaid invoices/sales.</p>';
-        // customerDropdown.value = '';
+        salesList.innerHTML = '<p class="text-muted mb-0">Enter an amount and select a customer to view unpaid invoices/sales.</p>';
+        customerDropdown.value = '';
         hiddenInput.value = '[]';
         submitButton.disabled = true;
         document.getElementById('deduct_tds').checked = false;
@@ -253,10 +252,6 @@ document.addEventListener('DOMContentLoaded', function () {
             amountToBePaidSpan.textContent = 'Please enter a valid amount greater than 0.';
         } else {
             amountToBePaidSpan.textContent = `Entered Amount: ₹${enteredAmount.toFixed(2)}`;
-            // If there are already displayed sales/invoices, update the allocation
-            if (salesData && salesData.length > 0) {
-                updateSelectedReceivables();
-            }
         }
     }
 
@@ -273,8 +268,8 @@ document.addEventListener('DOMContentLoaded', function () {
         salesData = [];
         submitButton.disabled = true;
 
-        if (!customerId) {
-            salesList.innerHTML = '<p class="text-muted">Please select a customer to view unpaid invoices/sales.</p>';
+        if (!customerId || enteredAmount <= 0) {
+            salesList.innerHTML = '<p class="text-muted">Please enter an amount and select a customer.</p>';
             return;
         }
 
@@ -306,45 +301,56 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            let totalOutstanding = data.reduce((sum, sale) => sum + parseFloat(sale.amount), 0);
+            let remainingAmount = enteredAmount;
+            let totalOutstanding = data.reduce((sum, receivable) => sum + parseFloat(receivable.amount), 0);
+            const selectedReceivables = [];
 
-            // Create table for sales with checkboxes
-            const tableContainer = document.createElement('div');
-            tableContainer.innerHTML = `
-                <div class="alert alert-info alert-sm mb-3">
-                    <strong>Instructions:</strong> Select the invoices/sales you want to apply payment to and enter the payment amount for each.
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="50"><input type="checkbox" id="select-all-sales" onchange="toggleSelectAll()" title="Select All"></th>
-                                <th>Type</th>
-                                <th>Reference Number</th>
-                                <th width="120">Outstanding Amount</th>
-                                <th width="150">Payment Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sales-tbody"></tbody>
-                    </table>
-                </div>
+            // Create table for invoices/sales with checkboxes (like payables)
+            const table = document.createElement('table');
+            table.className = 'table table-sm table-bordered';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="select-all-sales" onchange="toggleSelectAll()"></th>
+                        <th>Type</th>
+                        <th>Reference</th>
+                        <th>Outstanding</th>
+                        <th>Payment</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
             `;
-            const tbody = tableContainer.querySelector('#sales-tbody');
+            const tbody = table.querySelector('tbody');
 
             data.forEach(receivable => {
+                let paymentAmount = Math.min(remainingAmount, parseFloat(receivable.amount));
+                remainingAmount -= paymentAmount;
+                selectedReceivables.push({ id: receivable.id, amount: paymentAmount });
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><input type="checkbox" class="receivable-checkbox" data-id="${receivable.id}" data-amount="${parseFloat(receivable.amount).toFixed(2)}" onchange="updateSelectedReceivables()"></td>
+                    <td><input type="checkbox" class="receivable-checkbox" data-id="${receivable.id}" data-amount="${parseFloat(receivable.amount).toFixed(2)}" checked onchange="updateSelectedReceivables()"></td>
                     <td><span class="badge ${receivable.type === 'Invoice' ? 'bg-primary' : 'bg-secondary'}">${receivable.type}</span></td>
                     <td>${receivable.ref_no}</td>
                     <td>₹${parseFloat(receivable.amount).toFixed(2)}</td>
-                    <td><input type="number" class="form-control form-control-sm payment-amount" data-id="${receivable.id}" step="0.01" min="0" value="0" disabled onchange="updateSelectedReceivables()"></td>
+                    <td><input type="number" class="form-control form-control-sm payment-amount" data-id="${receivable.id}" step="0.01" min="0" value="${paymentAmount.toFixed(2)}" onchange="updateSelectedReceivables()"></td>
                 `;
                 tbody.appendChild(row);
             });
 
-            salesList.appendChild(tableContainer);
-            amountToBePaidSpan.textContent = `Total Outstanding: ₹${totalOutstanding.toFixed(2)}. Entered Amount: ₹${enteredAmount.toFixed(2)}.`;
+            salesList.appendChild(table);
+            
+            // Set the pre-selected data and update display
+            try {
+                hiddenInput.value = JSON.stringify(selectedReceivables);
+            } catch (e) {
+                console.error('Error stringifying selected receivables:', e);
+                salesList.innerHTML = '<p class="text-danger">Error processing receivables.</p>';
+                submitButton.disabled = true;
+                return;
+            }
+            amountToBePaidSpan.textContent = `Total Outstanding: ₹${totalOutstanding.toFixed(2)}. Allocated: ₹${(enteredAmount - remainingAmount).toFixed(2)}. Remaining: ₹${remainingAmount.toFixed(2)}.`;
+            submitButton.disabled = selectedReceivables.length === 0 || remainingAmount < 0;
         })
         .catch(error => {
             console.error('Error fetching invoices/sales:', error);
