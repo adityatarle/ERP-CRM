@@ -298,65 +298,65 @@ class PaymentController extends Controller
         $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'customer_id' => 'required|exists:customers,id',
-            'sale_ids' => 'required|json',
+            'receivable_ids' => 'required|json',
             'tds_amount' => 'nullable|numeric|min:0',
             'payment_date' => 'required|date',
             'notes' => 'nullable|string',
             'bank_name' => 'nullable|string|max:255',
         ]);
 
-        $saleEntries = json_decode($request->sale_ids, true);
+        $receivableEntries = json_decode($request->receivable_ids, true);
         $totalEnteredAmount = (float) $request->amount;
         $tdsAmount = (float) ($request->tds_amount ?? 0);
 
         // Validate JSON decoding
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($saleEntries)) {
-            return redirect()->back()->withErrors(['sale_ids' => 'The sale IDs field must be a valid JSON string.']);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($receivableEntries)) {
+            return redirect()->back()->withErrors(['receivable_ids' => 'The receivable IDs field must be a valid JSON string.']);
         }
 
-        // Validate sale entries
-        if (empty($saleEntries)) {
-            return redirect()->back()->withErrors(['sale_ids' => 'No sale entries selected for payment.']);
+        // Validate receivable entries
+        if (empty($receivableEntries)) {
+            return redirect()->back()->withErrors(['receivable_ids' => 'No receivable entries selected for payment.']);
         }
 
         // Verify total allocated amount (plus TDS) matches entered amount
-        $totalAllocated = array_sum(array_column($saleEntries, 'amount'));
+        $totalAllocated = array_sum(array_column($receivableEntries, 'amount'));
         if (abs($totalAllocated + $tdsAmount - $totalEnteredAmount) > 0.01) {
             return redirect()->back()->withErrors(['amount' => 'The total allocated amount plus TDS does not match the entered amount.']);
         }
 
-        // Validate sale IDs exist and belong to the customer
-        $validSaleIds = Receivable::where('customer_id', $request->customer_id)
+        // Validate receivable IDs exist and belong to the customer
+        $validReceivableIds = Receivable::where('customer_id', $request->customer_id)
             ->where('is_paid', false)
-            ->pluck('sale_id')
+            ->pluck('id')
             ->toArray();
 
-        foreach ($saleEntries as $entry) {
-            if (!isset($entry['id']) || !isset($entry['amount']) || !in_array($entry['id'], $validSaleIds)) {
-                return redirect()->back()->withErrors(['sale_ids' => 'Invalid sale entry selected.']);
+        foreach ($receivableEntries as $entry) {
+            if (!isset($entry['id']) || !isset($entry['amount']) || !in_array($entry['id'], $validReceivableIds)) {
+                return redirect()->back()->withErrors(['receivable_ids' => 'Invalid receivable entry selected.']);
             }
             if ((float) $entry['amount'] <= 0) {
-                return redirect()->back()->withErrors(['sale_ids' => 'Payment amount for sale ID ' . $entry['id'] . ' must be greater than 0.']);
+                return redirect()->back()->withErrors(['receivable_ids' => 'Payment amount for receivable ID ' . $entry['id'] . ' must be greater than 0.']);
             }
         }
 
-        DB::transaction(function () use ($request, $saleEntries, $tdsAmount) {
-            foreach ($saleEntries as $entry) {
-                $receivable = Receivable::where('sale_id', $entry['id'])
+        DB::transaction(function () use ($request, $receivableEntries, $tdsAmount) {
+            foreach ($receivableEntries as $entry) {
+                $receivable = Receivable::where('id', $entry['id'])
                     ->where('customer_id', $request->customer_id)
                     ->where('is_paid', false)
                     ->firstOrFail();
 
                 $paymentAmount = (float) $entry['amount'];
                 if ($paymentAmount > $receivable->amount) {
-                    throw new \Exception("Payment amount exceeds outstanding for sale ID: {$entry['id']}");
+                    throw new \Exception("Payment amount exceeds outstanding for receivable ID: {$entry['id']}");
                 }
 
                 // Record the payment
                 Payment::create([
                     'purchase_entry_id' => null,
                     'party_id' => null,
-                    'sale_id' => $entry['id'],
+                    'sale_id' => $receivable->sale_id,
                     'customer_id' => $request->customer_id,
                     'amount' => $paymentAmount,
                     'tds_amount' => $tdsAmount > 0 ? $tdsAmount : 0,
@@ -370,9 +370,10 @@ class PaymentController extends Controller
                 $receivable->amount -= ($paymentAmount + ($tdsAmount > 0 ? $tdsAmount : 0));
                 if ($receivable->amount <= 0.01) {
                     $receivable->is_paid = true;
-                    $sale = $receivable->sale;
-                    $sale->status = 'confirmed';
-                    $sale->save();
+                    if ($receivable->sale) {
+                        $receivable->sale->status = 'confirmed';
+                        $receivable->sale->save();
+                    }
                 }
                 $receivable->save();
             }
@@ -432,26 +433,41 @@ class PaymentController extends Controller
         }
 
         try {
-            // Fetch unpaid receivables for the given customer
+            // Fetch unpaid receivables for the given customer with invoice and sale relationships
             $unpaidReceivables = Receivable::where('is_paid', false)
                 ->where('customer_id', $customerId)
-                ->with('sale')
+                ->with(['sale', 'invoice'])
                 ->get();
 
-            // Map the receivables to include the sale information
-            $salesWithAmount = $unpaidReceivables->map(function ($receivable) {
+            // Map the receivables to include both invoice and sale information
+            $invoicesWithAmount = $unpaidReceivables->map(function ($receivable) {
+                $invoice = $receivable->invoice;
                 $sale = $receivable->sale;
+                
+                // Prioritize invoice information, fallback to sale information
+                $refNumber = '';
+                if ($invoice) {
+                    $refNumber = $invoice->invoice_number;
+                } elseif ($sale && $sale->ref_no) {
+                    $refNumber = $sale->ref_no;
+                } else {
+                    $refNumber = 'Receivable ID: ' . $receivable->id;
+                }
+
                 return [
-                    'id' => $sale ? $sale->id : $receivable->id,
-                    'ref_no' => $sale ? $sale->ref_no : 'Sale ID: ' . $receivable->sale_id,
+                    'id' => $receivable->id, // Use receivable ID for payment processing
+                    'invoice_id' => $invoice ? $invoice->id : null,
+                    'sale_id' => $sale ? $sale->id : null,
+                    'ref_no' => $refNumber,
                     'amount' => $receivable->amount,
+                    'type' => $invoice ? 'Invoice' : 'Sale'
                 ];
             })->toArray();
 
-            return response()->json($salesWithAmount);
+            return response()->json($invoicesWithAmount);
 
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to fetch sales'], 500);
+            return response()->json(['error' => 'Failed to fetch invoices/sales'], 500);
         }
     }
 
