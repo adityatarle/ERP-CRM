@@ -12,6 +12,7 @@ use App\Models\User; // Import User model
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Notification; // For sending notifications
 use App\Notifications\InvoiceUnlockRequested; // Import your Notification class
 // use App\Notifications\InvoiceUnlockDecision;  // If you create this for notifying requester of decision
@@ -201,17 +202,14 @@ class InvoiceController extends Controller
                 ]);
             }
 
+            // Build invoice data - only include fields that exist in your current schema
             $invoiceData = [
                 'invoice_number' => 'INV-' . strtoupper(uniqid()),
                 'customer_id' => $validated['customer_id'],
-                'contact_person' => $request->input('contact_person'),
-                'issue_date' => now()->toDateString(),
-                'due_date' => now()->addDays($creditDays)->toDateString(),
                 'subtotal' => $subtotal,
                 'tax' => $gstAmount,
                 'gst' => $gstRate,
                 'gst_type' => $gstType,
-                'description' => $request->input('description'),
                 'purchase_number' => $validated['purchase_number'],
                 'purchase_date' => $validated['purchase_date'],
                 'total' => $total,
@@ -220,6 +218,29 @@ class InvoiceController extends Controller
                 'sgst' => $gstType === 'CGST' ? ($validated['sgst'] ?? 9) : null,
                 'igst' => $gstType === 'IGST' ? ($validated['igst'] ?? 18) : null,
             ];
+
+            // Add optional fields only if they're provided
+            if ($request->has('contact_person') && !empty($request->input('contact_person'))) {
+                $invoiceData['contact_person'] = $request->input('contact_person');
+            }
+            
+            if ($request->has('description') && !empty($request->input('description'))) {
+                $invoiceData['description'] = $request->input('description');
+            }
+
+            // Try to add issue_date and due_date if columns exist
+            try {
+                $tableColumns = \Schema::getColumnListing('invoices');
+                if (in_array('issue_date', $tableColumns)) {
+                    $invoiceData['issue_date'] = now()->toDateString();
+                }
+                if (in_array('due_date', $tableColumns)) {
+                    $invoiceData['due_date'] = now()->addDays($creditDays ?? 30)->toDateString();
+                }
+            } catch (\Exception $e) {
+                // If we can't check columns, just skip these fields
+                Log::warning('Could not check invoice table columns: ' . $e->getMessage());
+            }
 
             $invoice = Invoice::create($invoiceData);
             $invoice->sales()->sync([$sale->id]);
