@@ -83,6 +83,7 @@
                                     <div id="customer-suggestions" class="list-group customer-suggestions" style="display: none;"></div>
                                 </div>
                                 <div class="col-md-6"><label for="ref_no" class="form-label">Ref. No (Challan Number)</label><input type="text" name="ref_no" id="ref_no" class="form-control" placeholder="Enter challan number"></div>
+                                <div class="col-md-6"><label for="contact_person" class="form-label">Contact Person</label><input type="text" name="contact_person" id="contact_person" class="form-control" placeholder="Enter contact person name (optional)"></div>
                                 <div class="col-md-6"><label for="purchase_number" class="form-label">Purchase Number</label><input type="text" name="purchase_number" id="purchase_number" class="form-control" placeholder="Enter purchase order number"></div>
                                 <div class="col-md-6"><label for="purchase_date" class="form-label">Purchase Date</label><input type="date" name="purchase_date" id="purchase_date" class="form-control" value="{{ date('Y-m-d') }}"></div>
                             </div>
