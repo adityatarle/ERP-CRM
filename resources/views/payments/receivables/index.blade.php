@@ -149,7 +149,7 @@
                                 {{-- Display the calculated credit days --}}
                                 <td class="text-center">{{ $creditDays }}</td>
 
-                                {{-- Display the calculated due status badge --}}
+                                {{-- Display the calculated due status of badge --}}
                                 <td>{!! $dueStatusBadge !!}</td>
 
                                 <td>
