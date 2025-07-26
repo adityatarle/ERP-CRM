@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Payable;
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PurchaseEntry;
 use App\Models\Party;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
-     public function index(Request $request)
+    public function index(Request $request)
     {
         $request->validate([
             'start_date' => 'nullable|date',
@@ -191,7 +192,7 @@ class PaymentController extends Controller
                 if ($payable->amount <= 0.01) {
                     $payable->is_paid = true;
                 }
-                
+
                 // Update invoice information if provided
                 if ($request->invoice_number) {
                     $payable->invoice_number = $request->invoice_number;
@@ -199,7 +200,7 @@ class PaymentController extends Controller
                 if ($request->invoice_date) {
                     $payable->invoice_date = $request->invoice_date;
                 }
-                
+
                 $payable->save();
             }
         });
@@ -213,58 +214,50 @@ class PaymentController extends Controller
         return view('payments.payables.list', compact('payments'));
     }
 
-    
 
-     public function receivables(Request $request)
-    {
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
-        $customer_search = $request->input('customer_search');
 
-        $query = Receivable::with('sale', 'customer')
-            ->where('is_paid', false);
+ public function receivables(Request $request)
+{
+    $validated = $request->validate([
+        'start_date' => 'nullable|date',
+        'end_date' => 'nullable|date|after_or_equal:start_date',
+        'customer_search' => 'nullable|string|max:255',
+    ]);
 
-        // Apply customer name filter if provided
-        if ($customer_search) {
-            $query->whereHas('customer', function ($q) use ($customer_search) {
-                $q->where('name', 'like', '%' . $customer_search . '%');
-            });
-        }
+    // THE FIX: Eager load the customer relationship
+    $query = Invoice::with('customer')
+        ->whereIn('payment_status', ['unpaid', 'partially_paid']);
 
-        // Apply date range filter if provided
-        if ($startDate && $endDate) {
-            if ($endDate < $startDate) {
-                return redirect()->back()->withErrors(['end_date' => 'End date must be after start date.']);
-            }
-
-            Log::info('Filtering receivables with date range and customer search', [
-                'start_date' => $startDate,
-                'end_date' => $endDate,
-                'customer_search' => $customer_search,
-            ]);
-
-            $query->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate]);
-        }
-
-        $receivables = $query->get();
-
-        Log::info('Receivables retrieved', [
-            'count' => $receivables->count(),
-            'receivables' => $receivables->map(function ($receivable) {
-                return [
-                    'id' => $receivable->id,
-                    'sale_id' => $receivable->sale_id,
-                    'created_at' => $receivable->created_at,
-                    'credit_days' => $receivable->credit_days,
-                ];
-            })->toArray(),
-        ]);
-
-        $unpaidSales = Sale::whereIn('id', Receivable::where('is_paid', false)->pluck('sale_id'))->get();
-        $customers = Customer::orderBy('name')->get();
-
-        return view('payments.receivables.index', compact('receivables', 'unpaidSales', 'customers', 'startDate', 'endDate', 'customer_search'));
+    if (!empty($validated['customer_search'])) {
+        $query->whereHas('customer', function ($q) use ($validated) {
+            $q->where('name', 'like', '%' . $validated['customer_search'] . '%');
+        });
     }
+
+    if (!empty($validated['start_date']) && !empty($validated['end_date'])) {
+        // Filter by 'issue_date' or 'created_at' if issue_date is not always present
+        $query->whereBetween('issue_date', [$validated['start_date'], $validated['end_date']]);
+    }
+
+    $invoices = $query->latest('issue_date')->paginate(20);
+    $customers = Customer::orderBy('name')->get();
+    
+    // No changes needed here, the 'with('customer')' and the main query on Invoice
+    // already make all invoice columns (like due_date) available.
+    // The previous code was correct.
+
+    return view('payments.receivables.index', [
+        'invoices' => $invoices,
+        'customers' => $customers,
+        'customer_search' => $validated['customer_search'] ?? '',
+        'startDate' => $validated['start_date'] ?? '',
+        'endDate' => $validated['end_date'] ?? '',
+    ]);
+}
+
+// ...
+
+
 
     public function exportReceivables(Request $request)
     {
@@ -293,205 +286,179 @@ class PaymentController extends Controller
         return view('payments.receivables.create', compact('unpaidSales', 'customers'));
     }
 
-    public function storeReceivable(Request $request)
+   public function storeReceivable(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'customer_id' => 'required|exists:customers,id',
-            'receivable_ids' => 'required|json',
+            'invoice_ids' => 'required|json', // Changed from receivable_ids
             'tds_amount' => 'nullable|numeric|min:0',
             'payment_date' => 'required|date',
             'notes' => 'nullable|string',
             'bank_name' => 'nullable|string|max:255',
         ]);
 
-        $receivableEntries = json_decode($request->receivable_ids, true);
-        $totalEnteredAmount = (float) $request->amount;
-        $tdsAmount = (float) ($request->tds_amount ?? 0);
-
-        // Validate JSON decoding
-        if (json_last_error() !== JSON_ERROR_NONE || !is_array($receivableEntries)) {
-            return redirect()->back()->withErrors(['receivable_ids' => 'The receivable IDs field must be a valid JSON string.']);
+        $invoiceEntries = json_decode($validated['invoice_ids'], true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return back()->withErrors(['invoice_ids' => 'Invalid invoice data format.']);
         }
 
-        // Validate receivable entries
-        if (empty($receivableEntries)) {
-            return redirect()->back()->withErrors(['receivable_ids' => 'No receivable entries selected for payment.']);
-        }
+        $totalEntered = (float)$validated['amount'];
+        $tdsAmount = (float)($validated['tds_amount'] ?? 0);
+        $totalAllocated = array_sum(array_column($invoiceEntries, 'amount'));
 
         // Verify total allocated amount (plus TDS) matches entered amount
-        $totalAllocated = array_sum(array_column($receivableEntries, 'amount'));
-        if (abs($totalAllocated + $tdsAmount - $totalEnteredAmount) > 0.01) {
-            return redirect()->back()->withErrors(['amount' => 'The total allocated amount plus TDS does not match the entered amount.']);
+        if (abs($totalAllocated + $tdsAmount - $totalEntered) > 0.01) {
+            return back()->withErrors(['amount' => 'The total allocated amount plus TDS (₹' . ($totalAllocated + $tdsAmount) . ') does not match the entered amount (₹' . $totalEntered . ').']);
         }
-
-        // Validate receivable IDs exist and belong to the customer
-        $validReceivableIds = Receivable::where('customer_id', $request->customer_id)
-            ->where('is_paid', false)
-            ->pluck('id')
-            ->toArray();
-
-        foreach ($receivableEntries as $entry) {
-            if (!isset($entry['id']) || !isset($entry['amount']) || !in_array($entry['id'], $validReceivableIds)) {
-                return redirect()->back()->withErrors(['receivable_ids' => 'Invalid receivable entry selected.']);
-            }
-            if ((float) $entry['amount'] <= 0) {
-                return redirect()->back()->withErrors(['receivable_ids' => 'Payment amount for receivable ID ' . $entry['id'] . ' must be greater than 0.']);
-            }
-        }
-
-        DB::transaction(function () use ($request, $receivableEntries, $tdsAmount) {
-            foreach ($receivableEntries as $entry) {
-                $receivable = Receivable::where('id', $entry['id'])
-                    ->where('customer_id', $request->customer_id)
-                    ->where('is_paid', false)
+        
+        DB::transaction(function () use ($validated, $invoiceEntries) {
+            $tdsToApply = (float)($validated['tds_amount'] ?? 0);
+            
+            foreach ($invoiceEntries as $entry) {
+                $invoice = Invoice::where('id', $entry['id'])
+                    ->where('customer_id', $validated['customer_id'])
+                    ->whereIn('payment_status', ['unpaid', 'partially_paid'])
                     ->firstOrFail();
 
-                $paymentAmount = (float) $entry['amount'];
-                if ($paymentAmount > $receivable->amount) {
-                    throw new \Exception("Payment amount exceeds outstanding for receivable ID: {$entry['id']}");
-                }
+                $paymentAmount = (float)$entry['amount'];
 
-                // Record the payment
+                // Create the payment record, linking it directly to the invoice
                 Payment::create([
-                    'purchase_entry_id' => null,
-                    'party_id' => null,
-                    'sale_id' => $receivable->sale_id,
-                    'customer_id' => $request->customer_id,
-                    'amount' => $paymentAmount,
-                    'tds_amount' => $tdsAmount > 0 ? $tdsAmount : 0,
-                    'payment_date' => $request->payment_date,
-                    'notes' => $request->notes,
-                    'bank_name' => $request->bank_name,
-                    'type' => 'receivable',
+                    'invoice_id'    => $invoice->id,
+                    'customer_id'   => $validated['customer_id'],
+                    'amount'        => $paymentAmount,
+                    'tds_amount'    => $tdsToApply,
+                    'payment_date'  => $validated['payment_date'],
+                    'notes'         => $validated['notes'] ?? null,
+                    'bank_name'     => $validated['bank_name'] ?? null,
+                    'type'          => 'receivable',
                 ]);
 
-                // Update receivable amount
-                $receivable->amount -= ($paymentAmount + ($tdsAmount > 0 ? $tdsAmount : 0));
-                if ($receivable->amount <= 0.01) {
-                    $receivable->is_paid = true;
-                    if ($receivable->sale) {
-                        $receivable->sale->status = 'confirmed';
-                        $receivable->sale->save();
-                    }
+                // Update the invoice itself
+                $invoice->amount_paid += $paymentAmount + $tdsToApply;
+                
+                // Update invoice payment status
+                if ($invoice->amount_due <= 0.01) { // Use amount_due accessor
+                    $invoice->payment_status = 'paid';
+                } else {
+                    $invoice->payment_status = 'partially_paid';
                 }
-                $receivable->save();
+                
+                $invoice->save();
+                
+                // Important: Ensure TDS is only applied once for the entire payment
+                $tdsToApply = 0; 
             }
         });
 
         return redirect()->route('receivables')->with('success', 'Payment recorded successfully.');
     }
 
-    public function receivablesPaymentsList(Request $request)
-    {
-        $tdsFilter = $request->input('tds_filter', 'all');
-        $sortBy = $request->input('sort_by', 'payment_date');
-        $sortDir = $request->input('sort_dir', 'desc');
-
-        // Validate sort_by to prevent SQL injection
-        $allowedSortColumns = [
-            'sale_ref_no' => 'sales.ref_no',
-            'customer_name' => 'customers.name',
-            'amount' => 'payments.amount',
-            'tds_amount' => 'payments.tds_amount',
-            'payment_date' => 'payments.payment_date',
-            'bank_name' => 'payments.bank_name',
-            'notes' => 'payments.notes',
-        ];
-
-        // Default to payment_date if sort_by is invalid
-        $sortColumn = array_key_exists($sortBy, $allowedSortColumns) ? $allowedSortColumns[$sortBy] : 'payments.payment_date';
-        $sortDir = in_array(strtolower($sortDir), ['asc', 'desc']) ? $sortDir : 'desc';
-
-        $query = Payment::with(['sale', 'customer'])
-            ->where('type', 'receivable')
-            ->leftJoin('sales', 'payments.sale_id', '=', 'sales.id')
-            ->leftJoin('customers', 'payments.customer_id', '=', 'customers.id')
-            ->select('payments.*');
-
-        // Apply TDS filter
-        $query->when($tdsFilter === 'with_tds', function ($q) {
-            $q->where('tds_amount', '>', 0);
-        })->when($tdsFilter === 'without_tds', function ($q) {
-            $q->whereNull('tds_amount')->orWhere('tds_amount', '=', 0);
-        });
-
-        // Apply sorting
-        $query->orderByRaw("$sortColumn $sortDir");
-
-        $payments = $query->get();
-
-        return view('payments.receivables.list', compact('payments', 'tdsFilter', 'sortBy', 'sortDir'));
-    }
-
-    public function getSalesByCustomer(Request $request)
-    {
-        $customerId = $request->query('customer_id');
-
-        if (!$customerId) {
-            return response()->json([]);
-        }
-
-        try {
-            // Fetch unpaid receivables for the given customer with invoice and sale relationships
-            $unpaidReceivables = Receivable::where('is_paid', false)
-                ->where('customer_id', $customerId)
-                ->with(['sale', 'invoice'])
-                ->get();
-
-            // Map the receivables to include both invoice and sale information
-            $invoicesWithAmount = $unpaidReceivables->map(function ($receivable) {
-                $invoice = $receivable->invoice;
-                $sale = $receivable->sale;
-                
-                // Prioritize invoice information, fallback to sale information
-                $refNumber = '';
-                if ($invoice) {
-                    $refNumber = $invoice->invoice_number;
-                } elseif ($sale && $sale->ref_no) {
-                    $refNumber = $sale->ref_no;
-                } else {
-                    $refNumber = 'Receivable ID: ' . $receivable->id;
-                }
-
-                return [
-                    'id' => $receivable->id, // Use receivable ID for payment processing
-                    'invoice_id' => $invoice ? $invoice->id : null,
-                    'sale_id' => $sale ? $sale->id : null,
-                    'ref_no' => $refNumber,
-                    'amount' => $receivable->amount,
-                    'type' => $invoice ? 'Invoice' : 'Sale'
-                ];
-            })->toArray();
-
-            return response()->json($invoicesWithAmount);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to fetch invoices/sales'], 500);
-        }
-    }
-
-   public function getPurchaseEntriesByParty(Request $request)
+   public function receivablesPaymentsList(Request $request)
 {
-    $partyId = $request->query('party_id');
-    if (!$partyId) {
-        return response()->json([], 400);
+    // --- Step 1: Get user input with defaults ---
+    $tdsFilter = $request->input('tds_filter', 'all');
+    $sortBy = $request->input('sort_by', 'payment_date');
+    $sortDir = $request->input('sort_dir', 'desc');
+
+    // --- Step 2: Define allowed columns for sorting ---
+    $allowedSortColumns = [
+        'invoice_number' => 'invoices.invoice_number',
+        'customer_name'  => 'customers.name',
+        'amount'         => 'payments.amount',
+        'tds_amount'     => 'payments.tds_amount',
+        'payment_date'   => 'payments.payment_date',
+        'due_date'       => 'invoices.due_date', // <-- ADD THIS
+        'bank_name'      => 'payments.bank_name',
+        'notes'          => 'payments.notes',
+    ];
+
+    $sortColumn = $allowedSortColumns[$sortBy] ?? 'payments.payment_date';
+    $sortDir = in_array(strtolower($sortDir), ['asc', 'desc']) ? $sortDir : 'desc';
+
+    // --- Step 3: Build the Eloquent query ---
+    $query = Payment::query()
+        ->where('type', 'receivable')
+        ->with(['invoice', 'customer']); // Eager load relationships
+
+    // --- Step 4: Apply Joins ONLY if sorting by a related table's column ---
+    if (in_array($sortBy, ['invoice_number', 'customer_name', 'due_date'])) { // <-- ADD due_date
+        $query->leftJoin('invoices', 'payments.invoice_id', '=', 'invoices.id')
+              ->leftJoin('customers', 'payments.customer_id', '=', 'customers.id')
+              ->select('payments.*', 'invoices.due_date', 'invoices.issue_date'); // <-- ADD issue_date and due_date to select
     }
 
-    $payables = Payable::where('party_id', $partyId)
-        ->where('is_paid', false)
-        ->with(['purchaseEntry'])
-        ->get();
+    // --- Step 5: Apply TDS filter ---
+    $query->when($tdsFilter === 'with_tds', function ($q) {
+        $q->where('payments.tds_amount', '>', 0);
+    })->when($tdsFilter === 'without_tds', function ($q) {
+        $q->where(function ($subQuery) {
+            $subQuery->whereNull('payments.tds_amount')->orWhere('payments.tds_amount', '=', 0);
+        });
+    });
 
-    $entries = $payables->map(function ($payable) {
-        return [
-            'id' => $payable->purchase_entry_id,
-            'purchase_number' => $payable->purchaseEntry->purchase_number ?? null,
-            'purchase_date' => $payable->purchaseEntry->purchase_date ?? null,
-            'amount' => (float) $payable->amount, // Ensure amount is a float
-        ];
-    })->sortBy('purchase_date')->values()->toArray();
+    // --- Step 6: Apply sorting ---
+    $query->orderBy($sortColumn, $sortDir);
 
-    return response()->json($entries);
+    $payments = $query->get();
+
+    // --- Step 7: Pass data to the view ---
+    return view('payments.receivables.list', compact('payments', 'tdsFilter', 'sortBy', 'sortDir'));
 }
+
+// ...
+
+
+
+
+    // ... other controller methods ...
+
+  
+
+    public function getPurchaseEntriesByParty(Request $request)
+    {
+        $partyId = $request->query('party_id');
+        if (!$partyId) {
+            return response()->json([], 400);
+        }
+
+        $payables = Payable::where('party_id', $partyId)
+            ->where('is_paid', false)
+            ->with(['purchaseEntry'])
+            ->get();
+
+        $entries = $payables->map(function ($payable) {
+            return [
+                'id' => $payable->purchase_entry_id,
+                'purchase_number' => $payable->purchaseEntry->purchase_number ?? null,
+                'purchase_date' => $payable->purchaseEntry->purchase_date ?? null,
+                'amount' => (float) $payable->amount, // Ensure amount is a float
+            ];
+        })->sortBy('purchase_date')->values()->toArray();
+
+        return response()->json($entries);
+    }
+
+     public function getInvoicesByCustomer(Request $request)
+    {
+        $validated = $request->validate(['customer_id' => 'required|exists:customers,id']);
+        
+        $unpaidInvoices = Invoice::where('customer_id', $validated['customer_id'])
+            ->whereIn('payment_status', ['unpaid', 'partially_paid'])
+            ->oldest('issue_date')
+            ->get(['id', 'invoice_number', 'total', 'amount_paid']); // Select only needed columns
+            
+        $data = $unpaidInvoices->map(function ($invoice) {
+            return [
+                'id'       => $invoice->id,
+                'ref_no'   => $invoice->invoice_number,
+                'amount'   => $invoice->amount_due, // Use the calculated amount_due attribute
+                'type'     => 'Invoice'
+            ];
+        });
+        
+        return response()->json($data);
+    }
+
 }

@@ -50,43 +50,40 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        // THE FIX: Validation rules are adjusted.
-        // `pstock` and `qty` are no longer required here.
+        // 1. Validation rules updated for the new fields
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:products,name',
             'category' => 'required|string|max:255',
             'subcategory' => 'nullable|string|max:255',
-            'price' => 'nullable|numeric|min:0',
             'hsn' => 'nullable|string|max:8',
-            'item_code' => 'nullable|string|max:255', // Increased max length
-            'discount' => 'nullable|numeric|min:0|max:100', // Added discount rule
+            'gst' => 'nullable|numeric|min:0|max:100',
+            // 'is_taxable' is handled separately below
         ]);
 
-        // THE FIX: Manually set the stock values to 0 by default.
-        // This applies when creating a product from the PO/Invoice page modal.
-        $validated['stock'] = $request->input('stock', 0);
-        $validated['pstock'] = $request->input('pstock', 0);
-        $validated['qty'] = $request->input('qty', 0);
+        // 2. Handle the checkbox for 'is_taxable'
+        // An unchecked checkbox does not send a value, so we check for its presence.
+        $validated['is_taxable'] = $request->has('is_taxable');
 
+        // 3. Create the product with the validated data
         $product = Product::create($validated);
 
-        // This part correctly handles the AJAX response for your modal form
+        // This part handles AJAX responses (e.g., from a modal)
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
                 'product' => [
                     'id' => $product->id,
                     'name' => $product->name,
-                    'price' => $product->price,
-                    'stock' => $product->stock,
-                    'itemcode' => $product->item_code, // Pass back item_code
+                    'hsn' => $product->hsn,
+                    'gst' => $product->gst,
                 ],
             ], 200);
         }
         
-        // This handles standard form submissions (e.g., from /products/create)
+        // This handles standard form submissions
         return redirect()->route('products.index')->with('success', 'Product added successfully.');
     }
+
 
     public function show(Product $product)
     {

@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    protected $fillable = ['name', 'category', 'subcategory', 'price', 'stock', 'discount', 'qty','gst', 'pstock', 'hsn','item_code'];
+    protected $fillable = ['name', 'category', 'subcategory', 'price', 'stock', 'is_taxable', 'qty','gst', 'pstock', 'hsn','item_code'];
+
+     protected $casts = [
+        'is_taxable' => 'boolean', // This ensures the value is always a true/false boolean
+    ];
+
 
     public function saleItems()
     {

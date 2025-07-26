@@ -86,9 +86,11 @@ class InvoiceController extends Controller
     }
 
 
-     public function store(Request $request)
+public function store(Request $request)
     {
         Log::debug('Invoice store called', ['request_data' => $request->all()]);
+
+        DB::beginTransaction();
 
         try {
             $validated = $request->validate([
@@ -110,30 +112,18 @@ class InvoiceController extends Controller
                 'purchase_date' => 'required|date',
                 'contact_person' => 'nullable|string',
             ]);
-
+            
             $totalSalePrice = 0;
             $saleItemsData = [];
-
+            
             $gstType = $validated['gst_type'];
-            $gstRate = 0;
-            if ($gstType === 'CGST') {
-                $cgst = $validated['cgst'] ?? 9;
-                $sgst = $validated['sgst'] ?? 9;
-                $gstRate = $cgst + $sgst;
-            } else {
-                $gstRate = $validated['igst'] ?? 18;
-            }
+            $gstRate = ($gstType === 'CGST') ? (($validated['cgst'] ?? 9) + ($validated['sgst'] ?? 9)) : ($validated['igst'] ?? 18);
 
             foreach ($validated['products'] as $index => $productData) {
                 $product = Product::findOrFail($productData['product_id']);
                 if ($product->stock < $productData['quantity']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Insufficient stock for product {$product->name}.",
-                        'errors' => [
-                            "products.{$index}.quantity" => "Insufficient stock for product {$product->name}."
-                        ]
-                    ], 422);
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => "Insufficient stock for product {$product->name}."], 422);
                 }
 
                 $unitPrice = $productData['sale_price'];
@@ -143,146 +133,99 @@ class InvoiceController extends Controller
                 $discountAmount = ($baseTotalPrice * $discountPercentage) / 100;
                 $itemTotalPrice = $baseTotalPrice - $discountAmount;
 
+                // --- THE FIX IS HERE ---
+                // Add unit_price and discount to the array being prepared for the database.
                 $saleItemsData[] = [
-                    'product_id' => $product->id,
-                    'quantity' => $quantity,
-                    'unit_price' => $unitPrice,
-                    'discount' => $discountPercentage,
-                    'total_price' => $itemTotalPrice,
-                    'itemcode' => $productData['itemcode'] ?? null,
+                    'product_id'         => $product->id,
+                    'quantity'           => $quantity,
+                    'unit_price'         => $unitPrice,
+                    'discount'           => $discountPercentage,
+                    'total_price'        => $itemTotalPrice,
+                    'itemcode'           => $productData['itemcode'] ?? null,
                     'secondary_itemcode' => $productData['secondary_itemcode'] ?? null,
                 ];
+                // --- END OF FIX ---
 
                 $totalSalePrice += $itemTotalPrice;
             }
 
             $sale = Sale::create([
                 'customer_id' => $validated['customer_id'],
-                'ref_no' => $validated['ref_no'],
+                'ref_no' => $validated['ref_no'] ?? null, // Ensure ref_no is handled if not present
                 'total_price' => $totalSalePrice,
                 'status' => 'confirmed',
             ]);
-
+            
             foreach ($saleItemsData as $itemData) {
-                $sale->saleItems()->create([
-                    'product_id' => $itemData['product_id'],
-                    'quantity' => $itemData['quantity'],
-                    'unit_price' => $itemData['unit_price'],
-                    'discount' => $itemData['discount'],
-                    'total_price' => $itemData['total_price'],
-                    'itemcode' => $itemData['itemcode'],
-                    'secondary_itemcode' => $itemData['secondary_itemcode'],
-                ]);
-                $product = Product::findOrFail($itemData['product_id']);
-                $product->decrement('stock', $itemData['quantity']);
+                $sale->saleItems()->create($itemData);
+                Product::find($itemData['product_id'])->decrement('stock', $itemData['quantity']);
             }
 
             $subtotal = $totalSalePrice;
             $gstAmount = $subtotal * ($gstRate / 100);
             $total = $subtotal + $gstAmount;
-
+            
             $customer = Customer::find($validated['customer_id']);
-            $creditDays = $customer->default_credit_days ?? 30;
+            $overdueInvoices = Invoice::where('customer_id', $validated['customer_id'])
+                ->whereIn('payment_status', ['unpaid', 'partially_paid'])
+                ->whereNotNull('due_date')
+                ->where('due_date', '<', Carbon::today())
+                ->exists();
 
-            $overdueReceivables = Receivable::where('customer_id', $validated['customer_id'])
-                ->where('is_paid', false)
-                ->get()
-                ->filter(function ($receivable) {
-                    if (is_null($receivable->credit_days)) return false;
-                    $dueDate = Carbon::parse($receivable->created_at)->addDays($receivable->credit_days);
-                    return Carbon::now()->greaterThan($dueDate);
-                });
+            $invoiceStatus = $overdueInvoices ? 'on_hold' : 'approved';
 
-            $invoiceStatus = $overdueReceivables->isEmpty() ? 'approved' : 'on_hold';
-
-            if ($overdueReceivables->isNotEmpty()) {
-                Log::info('Customer has overdue receivables, setting invoice status to on_hold', [
-                    'customer_id' => $validated['customer_id'],
-                    'overdue_receivables_count' => $overdueReceivables->count(),
-                ]);
+            if ($overdueInvoices) {
+                Log::info('Customer has overdue invoices, setting new invoice status to on_hold', ['customer_id' => $validated['customer_id']]);
             }
 
-            // Build invoice data - only include fields that exist in your current schema
+            $creditDays = $customer->default_credit_days ?? 30;
+
             $invoiceData = [
                 'invoice_number' => 'INV-' . strtoupper(uniqid()),
                 'customer_id' => $validated['customer_id'],
                 'subtotal' => $subtotal,
                 'tax' => $gstAmount,
+                'total' => $total,
+                'status' => $invoiceStatus,
                 'gst' => $gstRate,
                 'gst_type' => $gstType,
                 'purchase_number' => $validated['purchase_number'],
                 'purchase_date' => $validated['purchase_date'],
-                'total' => $total,
-                'status' => $invoiceStatus,
+                'contact_person' => $request->input('contact_person'),
+                'description' => $request->input('description'),
                 'cgst' => $gstType === 'CGST' ? ($validated['cgst'] ?? 9) : null,
                 'sgst' => $gstType === 'CGST' ? ($validated['sgst'] ?? 9) : null,
                 'igst' => $gstType === 'IGST' ? ($validated['igst'] ?? 18) : null,
+                'issue_date' => now()->toDateString(),
+                'due_date' => now()->addDays($creditDays)->toDateString(),
+                'amount_paid' => 0.00,
+                'payment_status' => 'unpaid',
             ];
-
-            // Add optional fields only if they're provided
-            if ($request->has('contact_person') && !empty($request->input('contact_person'))) {
-                $invoiceData['contact_person'] = $request->input('contact_person');
-            }
-            
-            if ($request->has('description') && !empty($request->input('description'))) {
-                $invoiceData['description'] = $request->input('description');
-            }
-
-            // Try to add issue_date and due_date if columns exist
-            try {
-                $tableColumns = \Schema::getColumnListing('invoices');
-                if (in_array('issue_date', $tableColumns)) {
-                    $invoiceData['issue_date'] = now()->toDateString();
-                }
-                if (in_array('due_date', $tableColumns)) {
-                    $invoiceData['due_date'] = now()->addDays($creditDays ?? 30)->toDateString();
-                }
-            } catch (\Exception $e) {
-                // If we can't check columns, just skip these fields
-                Log::warning('Could not check invoice table columns: ' . $e->getMessage());
-            }
 
             $invoice = Invoice::create($invoiceData);
             $invoice->sales()->sync([$sale->id]);
-
-            $saleTotalInvoiced = $subtotal + $gstAmount;
-            Receivable::updateOrCreate(
-                ['sale_id' => $sale->id],
-                [
-                    'customer_id' => $sale->customer_id,
-                    'invoice_id' => $invoice->id,
-                    'amount' => round($saleTotalInvoiced, 2),
-                    'is_paid' => false,
-                    'credit_days' => $creditDays,
-                ]
-            );
+            
+            DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => $invoiceStatus === 'on_hold' ? 'Invoice created but placed on hold due to overdue receivables.' : 'Invoice created successfully.',
+                'message' => $invoiceStatus === 'on_hold' ? 'Invoice created but placed on hold due to overdue payments.' : 'Invoice created successfully.',
                 'messageType' => $invoiceStatus === 'on_hold' ? 'warning' : 'success'
             ], 200);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
             Log::error('Invoice creation validation failed', ['errors' => $e->errors(), 'request_data' => $request->all()]);
             return response()->json(['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Invoice creation failed', [
-                'error' => $e->getMessage(), 
-                'trace' => $e->getTraceAsString(),
-                'line' => $e->getLine(),
-                'file' => $e->getFile(),
-                'request_data' => $request->all()
-            ]);
-            return response()->json([
-                'success' => false, 
-                'message' => 'An error occurred while creating the invoice: ' . $e->getMessage(),
-                'debug' => [
-                    'line' => $e->getLine(),
-                    'file' => basename($e->getFile())
-                ]
-            ], 500);
+            DB::rollBack();
+            Log::error('Invoice creation failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['success' => false, 'message' => 'An error occurred while creating the invoice: ' . $e->getMessage()], 500);
         }
     }
+
+
+
 
 
     public function show(Invoice $invoice)

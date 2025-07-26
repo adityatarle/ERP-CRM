@@ -17,6 +17,7 @@ use App\Http\Controllers\ReceiptNoteController;
 use App\Http\Controllers\QuantraController;
 use App\Http\Controllers\EnquiryController;
 
+
 // Home page (login form for guests, redirects to dashboard for authenticated users)
 Route::get('/', function () {
     if (Auth::check()) {
@@ -149,7 +150,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/receivables/create', [PaymentController::class, 'createReceivable'])->name('receivables.create');
     Route::post('/receivables', [PaymentController::class, 'storeReceivable'])->name('receivables.store');
     Route::get('/receivables/list', [PaymentController::class, 'receivablesPaymentsList'])->name('receivables.paymentsList');
-    Route::get('/receivables/get-sales-by-customer', [PaymentController::class, 'getSalesByCustomer'])->name('receivables.getSalesByCustomer');
+    Route::get('/receivables/get-invoices-by-customer', [PaymentController::class, 'getInvoicesByCustomer'])->name('receivables.getInvoicesByCustomer');
 
     Route::get('/purchase-entries', [PurchaseEntryController::class, 'index'])->name('purchase_entries.index');
     Route::get('/purchase-entries/create', [PurchaseEntryController::class, 'create'])->name('purchase_entries.create');

@@ -1,19 +1,44 @@
 @include('layout.header')
 
 <style>
-    body { background-color: #f4f7f9; }
-    .main-content-area { min-height: 100vh; }
-    .card-header h5 { font-size: 1.25rem; font-weight: 600; }
-    .table thead th {
-        background-color: #e9ecef; font-weight: 600;
-        color: #495057; white-space: nowrap; padding: 0.75rem 1rem;
+    body {
+        background-color: #f4f7f9;
     }
-    .table td { vertical-align: middle; padding: 0.75rem 1rem; }
+
+    .main-content-area {
+        min-height: 100vh;
+    }
+
+    .card-header h5 {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .table thead th {
+        background-color: #e9ecef;
+        font-weight: 600;
+        color: #495057;
+        white-space: nowrap;
+        padding: 0.75rem 1rem;
+    }
+
+    .table td {
+        vertical-align: middle;
+        padding: 0.75rem 1rem;
+    }
+
     .filter-section {
-        background-color: #f8f9fa; border: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
         border-radius: .375rem;
     }
-    .badge { padding: 0.4em 0.7em; font-size: 0.8rem; font-weight: 500; border-radius: 50rem; }
+
+    .badge {
+        padding: 0.4em 0.7em;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border-radius: 50rem;
+    }
 </style>
 
 <div class="main-content-area">
@@ -29,20 +54,20 @@
             <div class="card-body p-3">
                 <!-- Success/Error Messages -->
                 @if (session('success'))
-                    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
-                        {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
+                <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+                    {{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
                 @endif
                 @if ($errors->any())
-                    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
-                        <ul>
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
+                <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
                 @endif
 
                 <!-- Filter Form -->
@@ -71,52 +96,76 @@
                 </div>
 
                 <!-- Receivables Table -->
+                <!-- In resources/views/payments/receivables/index.blade.php -->
+
+                <!-- Receivables Table -->
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th>Ref. Number</th>
+                                <th>Invoice #</th>
                                 <th>Customer</th>
-                                <th>Amount</th>
-                                <th>Credit Days</th>
+                                <th class="text-end">Amount Due</th>
+                                <th class="text-center">Credit Days</th>
                                 <th>Due Status</th>
                                 <th>Payment Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($receivables as $receivable)
-                                <tr>
-                                    <td class="text-primary fw-bold">{{ $receivable->sale->ref_no ?? $receivable->invoice->invoice_number ?? 'N/A' }}</td>
-                                    <td>{{ $receivable->customer->name ?? 'N/A' }}</td>
-                                    <td>₹{{ number_format($receivable->amount, 2) }}</td>
-                                    <td>{{ $receivable->credit_days ?? 'N/A' }}</td>
-                                    <td>
-                                        @if ($receivable->is_paid)
-                                            <span class="badge bg-light text-dark">N/A (Paid)</span>
-                                        @elseif (is_null($receivable->due_days) && !$receivable->created_at)
-                                            <span class="badge bg-secondary">Invalid Date</span>
-                                        @elseif (is_null($receivable->due_days))
-                                            <span class="badge bg-secondary">N/A</span>
-                                        @elseif ($receivable->due_days === 0)
-                                            <span class="badge bg-warning text-dark">Due Today</span>
-                                        @elseif ($receivable->is_overdue)
-                                            <span class="badge bg-danger">{{ round($receivable->due_days) }} days overdue</span>
-                                        @else
-                                            <span class="badge bg-info text-dark">{{ round(abs($receivable->due_days)) }} days remaining</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if ($receivable->is_paid)
-                                            <span class="badge bg-success">Paid</span>
-                                        @else
-                                            <span class="badge bg-warning text-dark">Pending</span>
-                                        @endif
-                                    </td>
-                                </tr>
+                            @forelse($invoices as $invoice)
+                            @php
+                            // --- START OF NEW LOGIC ---
+                            $creditDays = 'N/A';
+                            $dueStatusBadge = '<span class="badge bg-secondary">N/A</span>';
+
+                            if ($invoice->issue_date && $invoice->due_date) {
+                            // Calculate Credit Days
+                            $issueDate = \Carbon\Carbon::parse($invoice->issue_date);
+                            $dueDate = \Carbon\Carbon::parse($invoice->due_date);
+                            $creditDays = $issueDate->diffInDays($dueDate);
+
+                            // Determine Due Status
+                            if ($invoice->payment_status == 'paid') {
+                            $dueStatusBadge = '<span class="badge bg-light text-dark">Paid</span>';
+                            } elseif (\Carbon\Carbon::today()->isSameDay($dueDate)) {
+                            $dueStatusBadge = '<span class="badge bg-warning text-dark">Due Today</span>';
+                            } elseif (\Carbon\Carbon::today()->gt($dueDate)) {
+                            $daysOverdue = \Carbon\Carbon::today()->diffInDays($dueDate);
+                            $dueStatusBadge = '<span class="badge bg-danger">'. $daysOverdue .' '. \Str::plural('day', $daysOverdue) .' overdue</span>';
+                            } else {
+                            $daysRemaining = \Carbon\Carbon::today()->diffInDays($dueDate);
+                            $dueStatusBadge = '<span class="badge bg-success">'. $daysRemaining .' '. \Str::plural('day', $daysRemaining) .' remaining</span>';
+                            }
+                            }
+                            // --- END OF NEW LOGIC ---
+                            @endphp
+                            <tr>
+                                <td class="text-primary fw-bold">
+                                    <a href="{{ route('invoices.show', $invoice->id) }}">{{ $invoice->invoice_number }}</a>
+                                </td>
+                                <td>{{ $invoice->customer->name ?? 'N/A' }}</td>
+                                <td class="text-end">₹{{ number_format($invoice->amount_due, 2) }}</td>
+
+                                {{-- Display the calculated credit days --}}
+                                <td class="text-center">{{ $creditDays }}</td>
+
+                                {{-- Display the calculated due status badge --}}
+                                <td>{!! $dueStatusBadge !!}</td>
+
+                                <td>
+                                    @if ($invoice->payment_status == 'paid')
+                                    <span class="badge bg-success">Paid</span>
+                                    @elseif ($invoice->payment_status == 'partially_paid')
+                                    <span class="badge bg-info text-dark">Partially Paid</span>
+                                    @else
+                                    <span class="badge bg-warning text-dark">Unpaid</span>
+                                    @endif
+                                </td>
+                            </tr>
                             @empty
-                                <tr>
-                                    <td colspan="6" class="text-center p-4">No receivables found.</td>
-                                </tr>
+                            <tr>
+                                <td colspan="6" class="text-center p-4">No outstanding invoices found.</td>
+                            </tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -143,58 +192,70 @@
                             <span class="input-group-text">₹</span>
                             <input type="number" name="amount" id="modal_amount" class="form-control" step="0.01" min="0.01" required oninput="validateAmount()" placeholder="Enter received amount">
                         </div>
-                        <small class="text-muted" id="amount-to-be-paid">Please enter the amount received from customer.</small>
+                        <small class="text-muted" id="amount-to-be-paid">Please enter the amount received from the customer.</small>
                         @error('amount')
-                            <div class="text-danger">{{ $message }}</div>
+                        <div class="text-danger mt-1">{{ $message }}</div>
                         @enderror
                     </div>
+
                     <div class="mb-3">
                         <label for="modal_customer_id" class="form-label">Customer <span class="text-danger">*</span></label>
-                        <select name="customer_id" id="modal_customer_id" class="form-select" required onchange="fetchSales()">
-                            <option value="">Select a Customer</option>
+                        <select name="customer_id" id="modal_customer_id" class="form-select" required onchange="fetchInvoices()">
+                            <option value="" disabled selected>Select a Customer</option>
                             @foreach($customers as $customer)
-                                <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                            <option value="{{ $customer->id }}">{{ $customer->name }}</option>
                             @endforeach
                         </select>
                         <small class="text-muted">Select the customer who made the payment.</small>
                         @error('customer_id')
-                            <div class="text-danger">{{ $message }}</div>
+                        <div class="text-danger mt-1">{{ $message }}</div>
                         @enderror
                     </div>
+
                     <div class="mb-3">
-                        <label for="sales-list" class="form-label fw-bold">Unpaid Invoices/Sales</label>
-                        <div id="sales-list" class="border rounded p-3" style="min-height: 100px; background-color: #f8f9fa;">
-                            <p class="text-muted mb-0">Enter an amount and select a customer to view unpaid invoices/sales.</p>
+                        <label for="invoices-list" class="form-label fw-bold">Unpaid Invoices</label>
+                        <div id="invoices-list" class="border rounded p-3" style="min-height: 100px; max-height: 250px; overflow-y: auto; background-color: #f8f9fa;">
+                            <p class="text-muted mb-0">Enter an amount and select a customer to view unpaid invoices.</p>
                         </div>
-                        <input type="hidden" name="receivable_ids" id="receivable_ids" value="[]">
-                        @error('receivable_ids')
-                            <div class="text-danger">{{ $message }}</div>
+
+                        <!-- THE MAIN CHANGE IS HERE -->
+                        <input type="hidden" name="invoice_ids" id="invoice_ids" value="[]">
+                        @error('invoice_ids')
+                        <div class="text-danger mt-1">{{ $message }}</div>
                         @enderror
                     </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input" id="deduct_tds" name="deduct_tds" onchange="toggleTdsField()">
-                            <label class="form-check-label" for="deduct_tds">Deduct TDS</label>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" class="form-check-input" id="deduct_tds" name="deduct_tds" onchange="toggleTdsField()">
+                                    <label class="form-check-label" for="deduct_tds">Deduct TDS</label>
+                                </div>
+                            </div>
+                            <div class="mb-3" id="tds_amount_field" style="display: none;">
+                                <label for="tds_amount" class="form-label">TDS Amount</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" name="tds_amount" id="tds_amount" class="form-control" step="0.01" min="0" value="0" oninput="updateSelectedInvoices()">
+                                </div>
+                                <small class="text-muted">Enter TDS amount deducted.</small>
+                                @error('tds_amount')
+                                <div class="text-danger mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payment_date" class="form-label">Payment Date</label>
+                                <input type="date" name="payment_date" id="payment_date" class="form-control" required value="{{ \Carbon\Carbon::today()->toDateString() }}">
+                                @error('payment_date')
+                                <div class="text-danger mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
                         </div>
                     </div>
-                    <div class="mb-3" id="tds_amount_field" style="display: none;">
-                        <label for="tds_amount" class="form-label">TDS Amount</label>
-                        <div class="input-group">
-                            <span class="input-group-text">₹</span>
-                            <input type="number" name="tds_amount" id="tds_amount" class="form-control" step="0.01" min="0" value="0" oninput="updateSelectedSales()">
-                        </div>
-                        <small class="text-muted">Enter TDS amount deducted by customer.</small>
-                        @error('tds_amount')
-                            <div class="text-danger">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    <div class="mb-3">
-                        <label for="payment_date" class="form-label">Payment Date</label>
-                        <input type="date" name="payment_date" id="payment_date" class="form-control" required value="{{ \Carbon\Carbon::today()->toDateString() }}">
-                        @error('payment_date')
-                            <div class="text-danger">{{ $message }}</div>
-                        @enderror
-                    </div>
+
                     <div class="mb-3">
                         <label for="bank_name" class="form-label">Payment Method</label>
                         <select name="bank_name" id="bank_name" class="form-select">
@@ -207,19 +268,21 @@
                             <option value="Other">Other</option>
                         </select>
                         @error('bank_name')
-                            <div class="text-danger">{{ $message }}</div>
+                        <div class="text-danger mt-1">{{ $message }}</div>
                         @enderror
                     </div>
+
                     <div class="mb-3">
                         <label for="notes" class="form-label">Notes</label>
-                        <textarea name="notes" id="notes" class="form-control" rows="3"></textarea>
+                        <textarea name="notes" id="notes" class="form-control" rows="2"></textarea>
                         @error('notes')
-                            <div class="text-danger">{{ $message }}</div>
+                        <div class="text-danger mt-1">{{ $message }}</div>
                         @enderror
                     </div>
+
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary btn-sm" id="submit-payment-btn" disabled>Submit Payment</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary" id="submit-payment-btn" disabled>Submit Payment</button>
                     </div>
                 </form>
             </div>
@@ -228,92 +291,90 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    let salesData = [];
-    let enteredAmount = 0;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Use more descriptive variable names for clarity
+        let invoiceData = [];
+        let enteredAmount = 0;
 
-    window.validateAmount = function() {
-        enteredAmount = parseFloat(document.getElementById('modal_amount').value) || 0;
-        const amountToBePaidSpan = document.getElementById('amount-to-be-paid');
-        const salesList = document.getElementById('sales-list');
-        const submitButton = document.getElementById('submit-payment-btn');
-        const customerDropdown = document.getElementById('modal_customer_id');
-        const hiddenInput = document.getElementById('receivable_ids');
+        // --- Step 1: Triggered when user types in the "Amount Received" field ---
+        window.validateAmount = function() {
+            enteredAmount = parseFloat(document.getElementById('modal_amount').value) || 0;
+            const amountInfoSpan = document.getElementById('amount-to-be-paid');
+            const customerDropdown = document.getElementById('modal_customer_id');
+            const invoiceListDiv = document.getElementById('invoices-list');
+            const hiddenInput = document.getElementById('invoice_ids'); // Correct ID
+            const submitButton = document.getElementById('submit-payment-btn');
 
-        salesList.innerHTML = '<p class="text-muted mb-0">Enter an amount and select a customer to view unpaid invoices/sales.</p>';
-        customerDropdown.value = '';
-        hiddenInput.value = '[]';
-        submitButton.disabled = true;
-        document.getElementById('deduct_tds').checked = false;
-        document.getElementById('tds_amount').value = 0;
-        toggleTdsField();
-
-        if (enteredAmount <= 0) {
-            amountToBePaidSpan.textContent = 'Please enter a valid amount greater than 0.';
-        } else {
-            amountToBePaidSpan.textContent = `Entered Amount: ₹${enteredAmount.toFixed(2)}`;
-        }
-    }
-
-    window.fetchSales = function() {
-        const customerId = document.getElementById('modal_customer_id').value;
-        const salesList = document.getElementById('sales-list');
-        const amountToBePaidSpan = document.getElementById('amount-to-be-paid');
-        const submitButton = document.getElementById('submit-payment-btn');
-        const hiddenInput = document.getElementById('receivable_ids');
-
-        salesList.innerHTML = '<p class="text-muted">Loading unpaid invoices/sales...</p>';
-        amountToBePaidSpan.textContent = enteredAmount > 0 ? `Entered Amount: ₹${enteredAmount.toFixed(2)}` : 'Please enter a valid amount.';
-        hiddenInput.value = '[]';
-        salesData = [];
-        submitButton.disabled = true;
-
-        if (!customerId || enteredAmount <= 0) {
-            salesList.innerHTML = '<p class="text-muted">Please enter an amount and select a customer.</p>';
-            return;
-        }
-
-        fetch(`{{ route("receivables.getSalesByCustomer") }}?customer_id=${customerId}`, {
-            headers: { 
-                'X-Requested-With': 'XMLHttpRequest', 
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-            },
-        })
-        .then(response => {
-            if (response.status === 401) {
-                throw new Error('Authentication required. Please log in to access this feature.');
-            }
-            if (!response.ok) {
-                throw new Error(`Failed to fetch invoices/sales (${response.status})`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            salesData = data;
-            salesList.innerHTML = '';
+            // Reset everything when the amount changes
+            customerDropdown.value = '';
+            invoiceListDiv.innerHTML = '<p class="text-muted mb-0">Select a customer to view unpaid invoices.</p>';
             hiddenInput.value = '[]';
+            submitButton.disabled = true;
+            document.getElementById('deduct_tds').checked = false;
+            document.getElementById('tds_amount').value = 0;
+            toggleTdsField(); // This will hide the TDS field
 
-            if (data.length === 0) {
-                salesList.innerHTML = '<p class="text-muted">No unpaid invoices/sales found for this customer.</p>';
-                submitButton.disabled = true;
-                amountToBePaidSpan.textContent = `Entered Amount: ₹${enteredAmount.toFixed(2)}`;
+            amountInfoSpan.textContent = enteredAmount > 0 ?
+                `Entered Amount: ₹${enteredAmount.toFixed(2)}` :
+                'Please enter a valid amount greater than 0.';
+        }
+
+        // --- Step 2: Triggered when user selects a Customer ---
+        window.fetchInvoices = function() {
+            const customerId = document.getElementById('modal_customer_id').value;
+            const invoiceListDiv = document.getElementById('invoices-list');
+            const submitButton = document.getElementById('submit-payment-btn');
+
+            // Reset UI for new customer selection
+            invoiceListDiv.innerHTML = '<p class="text-muted mb-0">Loading invoices...</p>';
+            submitButton.disabled = true;
+            invoiceData = [];
+
+            if (!customerId || enteredAmount <= 0) {
+                invoiceListDiv.innerHTML = '<p class="text-muted mb-0">Please enter an amount first, then select a customer.</p>';
                 return;
             }
 
-            let remainingAmount = enteredAmount;
-            let totalOutstanding = data.reduce((sum, receivable) => sum + parseFloat(receivable.amount), 0);
-            const selectedReceivables = [];
+            // Fetch unpaid invoices from the server
+            fetch(`{{ route("receivables.getInvoicesByCustomer") }}?customer_id=${customerId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Network error: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Invoices received from server:', data); // For debugging
+                    invoiceData = data;
 
-            // Create table for invoices/sales with checkboxes (like payables)
+                    if (!Array.isArray(data) || data.length === 0) {
+                        invoiceListDiv.innerHTML = '<p class="text-muted fw-bold">No unpaid invoices found for this customer.</p>';
+                        return;
+                    }
+
+                    // Build the table and auto-allocate the payment
+                    buildInvoicesTable(data);
+                    autoAllocatePayment();
+                    updateSelectedInvoices(); // Update totals and button state
+                })
+                .catch(error => {
+                    console.error('Error fetching invoices:', error);
+                    invoiceListDiv.innerHTML = `<p class="text-danger"><strong>Error:</strong> ${error.message}</p>`;
+                });
+        }
+
+        // Helper function to create the invoice table
+        function buildInvoicesTable(data) {
+            const invoiceListDiv = document.getElementById('invoices-list');
+            invoiceListDiv.innerHTML = ''; // Clear loading text
+
             const table = document.createElement('table');
             table.className = 'table table-sm table-bordered';
             table.innerHTML = `
-                <thead>
+                <thead class="table-light">
                     <tr>
-                        <th><input type="checkbox" id="select-all-sales" onchange="toggleSelectAll()"></th>
-                        <th>Type</th>
-                        <th>Reference</th>
+                        <th><input type="checkbox" id="select-all-invoices" onchange="toggleSelectAll()"></th>
+                        <th>Invoice #</th>
                         <th>Outstanding</th>
                         <th>Payment</th>
                     </tr>
@@ -322,139 +383,98 @@ document.addEventListener('DOMContentLoaded', function () {
             `;
             const tbody = table.querySelector('tbody');
 
-            data.forEach(receivable => {
-                let paymentAmount = Math.min(remainingAmount, parseFloat(receivable.amount));
-                remainingAmount -= paymentAmount;
-                selectedReceivables.push({ id: receivable.id, amount: paymentAmount });
-
+            data.forEach(invoice => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><input type="checkbox" class="receivable-checkbox" data-id="${receivable.id}" data-amount="${parseFloat(receivable.amount).toFixed(2)}" checked onchange="updateSelectedReceivables()"></td>
-                    <td><span class="badge ${receivable.type === 'Invoice' ? 'bg-primary' : 'bg-secondary'}">${receivable.type}</span></td>
-                    <td>${receivable.ref_no}</td>
-                    <td>₹${parseFloat(receivable.amount).toFixed(2)}</td>
-                    <td><input type="number" class="form-control form-control-sm payment-amount" data-id="${receivable.id}" step="0.01" min="0" value="${paymentAmount.toFixed(2)}" onchange="updateSelectedReceivables()"></td>
+                    <td><input type="checkbox" class="invoice-checkbox" data-id="${invoice.id}" data-amount="${invoice.amount.toFixed(2)}" onchange="updateSelectedInvoices()"></td>
+                    <td>${invoice.ref_no}</td>
+                    <td>₹${invoice.amount.toFixed(2)}</td>
+                    <td><input type="number" class="form-control form-control-sm payment-amount" data-id="${invoice.id}" step="0.01" min="0" value="0.00" oninput="updateSelectedInvoices()"></td>
                 `;
                 tbody.appendChild(row);
             });
+            invoiceListDiv.appendChild(table);
+        }
 
-            salesList.appendChild(table);
-            
-            // Set the pre-selected data and update display
-            try {
-                hiddenInput.value = JSON.stringify(selectedReceivables);
-            } catch (e) {
-                console.error('Error stringifying selected receivables:', e);
-                salesList.innerHTML = '<p class="text-danger">Error processing receivables.</p>';
-                submitButton.disabled = true;
-                return;
+        // Helper function to automatically apply the payment to the oldest invoices first
+        function autoAllocatePayment() {
+            let remainingToAllocate = enteredAmount;
+            const checkboxes = document.querySelectorAll('.invoice-checkbox');
+
+            checkboxes.forEach(checkbox => {
+                if (remainingToAllocate <= 0) return;
+
+                const outstanding = parseFloat(checkbox.dataset.amount);
+                const paymentInput = checkbox.closest('tr').querySelector('.payment-amount');
+                const paymentAmount = Math.min(outstanding, remainingToAllocate);
+
+                if (paymentAmount > 0) {
+                    checkbox.checked = true;
+                    paymentInput.value = paymentAmount.toFixed(2);
+                    remainingToAllocate -= paymentAmount;
+                }
+            });
+        }
+
+        // --- Step 3: Triggered by almost any user action in the modal to recalculate everything ---
+        window.updateSelectedInvoices = function() {
+            const checkedInvoices = document.querySelectorAll('.invoice-checkbox:checked');
+            const hiddenInput = document.getElementById('invoice_ids');
+            const amountInfoSpan = document.getElementById('amount-to-be-paid');
+            const submitButton = document.getElementById('submit-payment-btn');
+            const tdsAmount = parseFloat(document.getElementById('tds_amount').value) || 0;
+
+            let totalAllocated = 0;
+            const selectedInvoicesForSubmission = [];
+
+            // Recalculate total allocated amount from payment input fields
+            checkedInvoices.forEach(checkbox => {
+                const paymentInput = checkbox.closest('tr').querySelector('.payment-amount');
+                const paymentAmount = parseFloat(paymentInput.value) || 0;
+                totalAllocated += paymentAmount;
+
+                if (paymentAmount > 0) {
+                    selectedInvoicesForSubmission.push({
+                        id: checkbox.dataset.id,
+                        amount: paymentAmount
+                    });
+                }
+            });
+
+            // Update the hidden input for form submission
+            hiddenInput.value = JSON.stringify(selectedInvoicesForSubmission);
+
+            // Update the information display text
+            const totalOutstanding = invoiceData.reduce((sum, inv) => sum + inv.amount, 0);
+            const totalPayment = totalAllocated + tdsAmount;
+            const balance = enteredAmount - totalPayment;
+
+            amountInfoSpan.innerHTML = `Entered: <b class="text-dark">₹${enteredAmount.toFixed(2)}</b> | Allocated: <b class="text-primary">₹${totalAllocated.toFixed(2)}</b> | TDS: <b class="text-info">₹${tdsAmount.toFixed(2)}</b> | Balance: <b class="${balance < 0 ? 'text-danger' : 'text-success'}">₹${balance.toFixed(2)}</b>`;
+
+            // Enable or disable the submit button based on valid conditions
+            const isInvalid = totalAllocated <= 0 || balance < -0.01; // Allow for tiny rounding errors
+            submitButton.disabled = isInvalid;
+        }
+
+        window.toggleSelectAll = function() {
+            const masterCheckbox = document.getElementById('select-all-invoices');
+            document.querySelectorAll('.invoice-checkbox').forEach(cb => {
+                cb.checked = masterCheckbox.checked;
+            });
+            updateSelectedInvoices();
+        }
+
+        window.toggleTdsField = function() {
+            const tdsField = document.getElementById('tds_amount_field');
+            const tdsCheckbox = document.getElementById('deduct_tds');
+            tdsField.style.display = tdsCheckbox.checked ? 'block' : 'none';
+            if (!tdsCheckbox.checked) {
+                document.getElementById('tds_amount').value = 0;
             }
-            amountToBePaidSpan.textContent = `Total Outstanding: ₹${totalOutstanding.toFixed(2)}. Allocated: ₹${(enteredAmount - remainingAmount).toFixed(2)}. Remaining: ₹${remainingAmount.toFixed(2)}.`;
-            submitButton.disabled = selectedReceivables.length === 0 || remainingAmount < 0;
-        })
-        .catch(error => {
-            console.error('Error fetching invoices/sales:', error);
-            if (error.message.includes('Authentication required')) {
-                salesList.innerHTML = '<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Please log in to view unpaid invoices/sales.</p>';
-            } else {
-                salesList.innerHTML = '<p class="text-danger"><i class="fas fa-exclamation-circle"></i> Error loading invoices/sales: ' + error.message + '</p>';
-            }
-            submitButton.disabled = true;
-        });
-    }
-
-    window.toggleSelectAll = function() {
-        const selectAllCheckbox = document.getElementById('select-all-sales');
-        const checkboxes = document.querySelectorAll('.receivable-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = selectAllCheckbox.checked;
-            const paymentInput = checkbox.closest('tr').querySelector('.payment-amount');
-            paymentInput.disabled = !checkbox.checked;
-            if (!checkbox.checked) paymentInput.value = '0';
-        });
-        updateSelectedReceivables();
-    }
-
-    window.toggleTdsField = function() {
-        const deductTdsCheckbox = document.getElementById('deduct_tds');
-        const tdsAmountField = document.getElementById('tds_amount_field');
-        const tdsAmountInput = document.getElementById('tds_amount');
-
-        if (deductTdsCheckbox.checked) {
-            tdsAmountField.style.display = 'block';
-        } else {
-            tdsAmountField.style.display = 'none';
-            tdsAmountInput.value = 0;
-        }
-        updateSelectedReceivables();
-    }
-
-    window.updateSelectedReceivables = function() {
-        const checkboxes = document.querySelectorAll('.receivable-checkbox:checked');
-        const hiddenInput = document.getElementById('receivable_ids');
-        const amountToBePaidSpan = document.getElementById('amount-to-be-paid');
-        const submitButton = document.getElementById('submit-payment-btn');
-        const deductTdsCheckbox = document.getElementById('deduct_tds');
-        const tdsAmountInput = document.getElementById('tds_amount');
-
-        let tdsAmount = deductTdsCheckbox.checked ? parseFloat(tdsAmountInput.value) || 0 : 0;
-        let remainingAmount = enteredAmount - tdsAmount;
-        let totalAllocated = 0;
-        const selectedReceivables = [];
-
-        if (remainingAmount < 0) {
-            amountToBePaidSpan.textContent = `Error: TDS amount (₹${tdsAmount.toFixed(2)}) exceeds entered amount (₹${enteredAmount.toFixed(2)}).`;
-            submitButton.disabled = true;
-            hiddenInput.value = '[]';
-            return;
+            updateSelectedInvoices();
         }
 
-        checkboxes.forEach(checkbox => {
-            const receivableId = checkbox.getAttribute('data-id');
-            const outstandingAmount = parseFloat(checkbox.getAttribute('data-amount'));
-            const paymentInput = checkbox.closest('tr').querySelector('.payment-amount');
-            let paymentAmount = parseFloat(paymentInput.value) || 0;
-
-            // Limit payment amount to outstanding amount and remaining entered amount
-            paymentAmount = Math.min(paymentAmount, outstandingAmount, remainingAmount);
-            paymentInput.value = paymentAmount.toFixed(2);
-            remainingAmount -= paymentAmount;
-            totalAllocated += paymentAmount;
-
-            if (paymentAmount > 0) {
-                selectedReceivables.push({ id: receivableId, amount: paymentAmount });
-            }
-        });
-
-        try {
-            hiddenInput.value = JSON.stringify(selectedReceivables);
-        } catch (e) {
-            console.error('Error stringifying selected receivables:', e);
-            amountToBePaidSpan.textContent = 'Error processing receivables.';
-            submitButton.disabled = true;
-            return;
-        }
-
-        amountToBePaidSpan.textContent = `Total Outstanding: ₹${salesData.reduce((sum, receivable) => sum + parseFloat(receivable.amount), 0).toFixed(2)}. Allocated: ₹${totalAllocated.toFixed(2)}. TDS: ₹${tdsAmount.toFixed(2)}. Remaining: ₹${remainingAmount.toFixed(2)}.`;
-        submitButton.disabled = totalAllocated <= 0 || (totalAllocated + tdsAmount) > enteredAmount;
-    }
-
-    function exportToExcel() {
-        const startDate = document.getElementById('start_date').value;
-        const endDate = document.getElementById('end_date').value;
-        const customerSearch = document.getElementById('customer_search').value;
-
-        let exportUrl = '{{ route("receivables.export") }}';
-        const params = new URLSearchParams();
-        if (startDate) params.append('start_date', startDate);
-        if (endDate) params.append('end_date', endDate);
-        if (customerSearch) params.append('customer_search', customerSearch);
-
-        if (params.toString()) {
-            exportUrl += '?' + params.toString();
-        }
-
-        window.location.href = exportUrl;
-    }
+        // No need for a separate exportToExcel function here as it's not part of the modal.
+    });
 </script>
 @include('layout.footer')
