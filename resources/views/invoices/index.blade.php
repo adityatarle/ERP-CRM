@@ -21,6 +21,42 @@
     .badge-primary { background-color: rgba(0, 123, 255, 0.1); color: #004085; }
     .badge-success { background-color: rgba(25, 135, 84, 0.1); color: #0f5132; }
     .badge-warning { background-color: rgba(255, 193, 7, 0.1); color: #664d03; }
+    
+    /* Total Value Display Styling */
+    .total-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border-left: 4px solid transparent;
+    }
+    
+    .total-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .total-card .card-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .total-card .h5 {
+        font-weight: 700;
+        font-size: 1.5rem;
+    }
+    
+    .total-card .text-primary {
+        color: #0d6efd !important;
+    }
+    
+    .total-card .text-success {
+        color: #198754 !important;
+    }
+    
+    .total-card .text-muted {
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
 </style>
 
 <body class="act-invoice">
@@ -77,6 +113,50 @@
                                 </div>
                             </div>
                         </form>
+                    </div>
+
+                    <!-- Total Values Display -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm total-card">
+                                <div class="card-body p-3">
+                                    <h6 class="card-title text-muted mb-2">
+                                        <i class="fa fa-filter me-2"></i>
+                                        @if($startDate || $endDate || $customer_search)
+                                            Filtered Results
+                                        @else
+                                            All Invoices
+                                        @endif
+                                    </h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted">Total Value:</span>
+                                        <span class="h5 mb-0 text-primary">₹{{ number_format($filteredTotal, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <span class="text-muted">Count:</span>
+                                        <span class="text-muted">{{ $filteredCount }} invoices</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm total-card">
+                                <div class="card-body p-3">
+                                    <h6 class="card-title text-muted mb-2">
+                                        <i class="fa fa-chart-line me-2"></i>
+                                        Overall Summary
+                                    </h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted">Total Value:</span>
+                                        <span class="h5 mb-0 text-success">₹{{ number_format($overallTotal, 2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <span class="text-muted">Count:</span>
+                                        <span class="text-muted">{{ $overallCount }} invoices</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Invoices Table -->

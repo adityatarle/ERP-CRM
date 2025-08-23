@@ -58,9 +58,31 @@ class InvoiceController extends Controller
             $query->whereBetween('created_at', [$startDate, $endDate]);
         }
 
+        // --- THE FIX IS HERE ---
+        // Calculate the total amount from the *unpaginated* filtered query
+        // We clone the query to avoid affecting the pagination query
+        $filteredInvoicesForTotal = $query->clone()->get();
+        $filteredTotal = $filteredInvoicesForTotal->sum('total');
+        $filteredCount = $filteredInvoicesForTotal->count();
+        
+        // Calculate overall totals (without filters) for comparison
+        $overallTotal = Invoice::sum('total');
+        $overallCount = Invoice::count();
+        // --- END OF FIX ---
+
+        // Now, apply ordering and pagination to the original query for display
         $invoices = $query->latest()->paginate(15);
 
-        return view('invoices.index', compact('invoices', 'startDate', 'endDate', 'customer_search'));
+        return view('invoices.index', compact(
+            'invoices', 
+            'startDate', 
+            'endDate', 
+            'customer_search',
+            'filteredTotal',
+            'filteredCount',
+            'overallTotal',
+            'overallCount'
+        ));
     }
 
     public function create()
