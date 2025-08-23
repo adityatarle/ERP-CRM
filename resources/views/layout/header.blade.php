@@ -148,6 +148,19 @@
                     </a>
                     <a href="{{ route('enquiry.index') }}"
                         class="nav-item nav-link act-enquiry {{ Route::is('enquiry.index') ? 'active' : '' }}"><i class="fa fa-question-circle"></i>Enquiry</a>
+                    
+                    {{-- Reports Section --}}
+                    @if (Auth::check() && Auth::user()->role === 'superadmin')
+                    <div class="nav-item dropdown">
+                        <a href="#" class="nav-link dropdown-toggle act-reports" data-bs-toggle="dropdown"><i
+                                class="fa fa-chart-bar me-2"></i>Reports</a>
+                        <div class="dropdown-menu bg-transparent border-0">
+                            <a href="{{ route('reports.profit_loss') }}" class="dropdown-item">Sales & Profit Analysis</a>
+                            <a href="{{ route('reports.category_wise') }}" class="dropdown-item">Category-Wise Report</a>
+                        </div>
+                    </div>
+                    @endif
+                    
                     @if (Auth::check() && Auth::user()->role === 'manager')
                     <a href="{{ route('staff.index') }}"
                         class="nav-item nav-link act-staff {{ Route::is('staff.index') ? 'active' : '' }}"><i
