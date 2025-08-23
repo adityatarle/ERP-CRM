@@ -92,27 +92,28 @@
 
         <div class="table-responsive">
             <table class="table table-striped table-bordered">
-                <thead>
-                    <tr class="text-dark">
-                        <th scope="col">Category</th>
-                        <th scope="col">Subcategories</th>
-                        <th scope="col">Product Count</th>
-                        <th scope="col">Total Qty Sold</th>
-                        <th scope="col">Total Revenue</th>
-                        <th scope="col">Total Cost (COGS)</th>
-                        <th scope="col">Profit / Loss</th>
-                        <th scope="col">Profit Margin</th>
-                    </tr>
-                </thead>
+                                        <thead>
+                            <tr class="text-dark">
+                                <th scope="col">Category</th>
+                                <th scope="col">Subcategories</th>
+                                <th scope="col">Product Count</th>
+                                <th scope="col">Total Qty Sold</th>
+                                <th scope="col">Total Revenue</th>
+                                <th scope="col">Total Cost (COGS)</th>
+                                <th scope="col">Profit / Loss</th>
+                                <th scope="col">Profit Margin</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
                 <tbody>
                     @forelse ($categoryStats as $stat)
                         <tr>
                             <td class="fw-bold">{{ $stat['category'] }}</td>
                             <td>
                                 @if($stat['subcategories']->count() > 0)
-                                    <span class="badge bg-light text-dark me-1">
-                                        {{ $stat['subcategories']->implode('</span><span class="badge bg-light text-dark me-1">') }}
-                                    </span>
+                                    @foreach($stat['subcategories'] as $subcategory)
+                                        <span class="badge bg-light text-dark me-1">{{ $subcategory }}</span>
+                                    @endforeach
                                 @else
                                     <span class="text-muted">No subcategories</span>
                                 @endif
@@ -128,6 +129,11 @@
                                 <span class="badge {{ $stat['profit_margin'] >= 0 ? 'bg-success' : 'bg-danger' }}">
                                     {{ number_format($stat['profit_margin'], 2) }}%
                                 </span>
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-primary" onclick="viewCategoryDetails('{{ $stat['category'] }}')">
+                                    <i class="fa fa-eye me-1"></i>View Details
+                                </button>
                             </td>
                         </tr>
                     @empty
@@ -207,6 +213,29 @@
     </div>
 </div>
 
+<!-- Category Details Modal -->
+<div class="modal fade" id="categoryDetailsModal" tabindex="-1" aria-labelledby="categoryDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="categoryDetailsModalLabel">Category Details: <span id="modalCategoryName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="categoryDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="exportCategoryDetails()">
+                    <i class="fa fa-download me-1"></i>Export Details
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .badge {
     font-size: 0.8em;
@@ -221,5 +250,126 @@
     color: #20c997 !important;
 }
 </style>
+
+<script>
+function viewCategoryDetails(categoryName) {
+    // Show modal
+    document.getElementById('modalCategoryName').textContent = categoryName;
+    document.getElementById('categoryDetailsContent').innerHTML = '<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x"></i><p>Loading...</p></div>';
+    
+    const modal = new bootstrap.Modal(document.getElementById('categoryDetailsModal'));
+    modal.show();
+    
+    // Load category details via AJAX
+    fetch(`/reports/category-details/${encodeURIComponent(categoryName)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayCategoryDetails(data.data);
+            } else {
+                document.getElementById('categoryDetailsContent').innerHTML = 
+                    '<div class="alert alert-danger">Error loading category details.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('categoryDetailsContent').innerHTML = 
+                '<div class="alert alert-danger">Error loading category details.</div>';
+        });
+}
+
+function displayCategoryDetails(data) {
+    const content = document.getElementById('categoryDetailsContent');
+    
+    let html = `
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h4>₹${data.totalRevenue.toLocaleString()}</h4>
+                        <small>Total Revenue</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h4>₹${data.totalCogs.toLocaleString()}</h4>
+                        <small>Total COGS</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h4>₹${data.totalProfit.toLocaleString()}</h4>
+                        <small>Total Profit</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h4>${data.profitMargin.toFixed(2)}%</h4>
+                        <small>Profit Margin</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h6 class="mb-3">Products in this Category</h6>
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Item Code</th>
+                        <th>Subcategory</th>
+                        <th>Quantity Sold</th>
+                        <th>Revenue</th>
+                        <th>COGS</th>
+                        <th>Profit</th>
+                        <th>Profit Margin</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    data.products.forEach(product => {
+        const profitMargin = product.revenue > 0 ? ((product.revenue - product.cogs) / product.revenue * 100) : 0;
+        html += `
+            <tr>
+                <td>${product.name}</td>
+                <td>${product.item_code || 'N/A'}</td>
+                <td>${product.subcategory || 'N/A'}</td>
+                <td class="text-center">${product.quantity_sold}</td>
+                <td class="text-end">₹${product.revenue.toLocaleString()}</td>
+                <td class="text-end">₹${product.cogs.toLocaleString()}</td>
+                <td class="text-end ${(product.revenue - product.cogs) >= 0 ? 'text-success' : 'text-danger'}">
+                    ₹${(product.revenue - product.cogs).toLocaleString()}
+                </td>
+                <td class="text-center">
+                    <span class="badge ${profitMargin >= 0 ? 'bg-success' : 'bg-danger'}">
+                        ${profitMargin.toFixed(2)}%
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+}
+
+function exportCategoryDetails() {
+    const categoryName = document.getElementById('modalCategoryName').textContent;
+    window.open(`/reports/category-details/${encodeURIComponent(categoryName)}/export`, '_blank');
+}
+</script>
 
 @include('layout.footer')

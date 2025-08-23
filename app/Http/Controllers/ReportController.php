@@ -232,4 +232,119 @@ class ReportController extends Controller
             $filename
         );
     }
+
+    /**
+     * Get detailed information for a specific category (AJAX endpoint).
+     */
+    public function categoryDetails($category)
+    {
+        try {
+            // Decode the category name from URL
+            $categoryName = urldecode($category);
+            
+            // Get all sale items for this category
+            $saleItems = SaleItem::with(['product:id,name,category,subcategory,item_code,hsn'])
+                ->whereHas('product', function($query) use ($categoryName) {
+                    $query->where('category', $categoryName);
+                })
+                ->get();
+
+            if ($saleItems->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No data found for this category'
+                ]);
+            }
+
+            // Calculate product costs
+            $allPurchaseItems = PurchaseEntryItem::where('status', 'received')->get();
+            $productCosts = [];
+
+            $groupedPurchases = $allPurchaseItems->groupBy('product_id');
+            foreach ($groupedPurchases as $productId => $items) {
+                $totalCost = $items->sum(function($item) {
+                    return ($item->unit_price * (1 - ($item->discount ?? 0) / 100)) * $item->quantity;
+                });
+                $totalQuantity = $items->sum('quantity');
+                $productCosts[$productId] = $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
+            }
+
+            // Group sales by product
+            $salesByProduct = $saleItems->groupBy('product_id');
+            $products = [];
+            $totalRevenue = 0;
+            $totalCogs = 0;
+
+            foreach ($salesByProduct as $productId => $items) {
+                if (!$items->first()->product) continue;
+
+                $product = $items->first()->product;
+                $totalQuantity = $items->sum('quantity');
+                $totalProductRevenue = $items->sum(function($item) {
+                    return $item->quantity * $item->unit_price;
+                });
+                $averageCost = $productCosts[$productId] ?? 0;
+                $totalProductCogs = $averageCost * $totalQuantity;
+
+                $products[] = [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'item_code' => $product->item_code,
+                    'subcategory' => $product->subcategory,
+                    'quantity_sold' => $totalQuantity,
+                    'revenue' => $totalProductRevenue,
+                    'cogs' => $totalProductCogs,
+                ];
+
+                $totalRevenue += $totalProductRevenue;
+                $totalCogs += $totalProductCogs;
+            }
+
+            $totalProfit = $totalRevenue - $totalCogs;
+            $profitMargin = $totalRevenue > 0 ? ($totalProfit / $totalRevenue) * 100 : 0;
+
+            // Sort products by revenue (highest first)
+            usort($products, function($a, $b) {
+                return $b['revenue'] <=> $a['revenue'];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'category' => $categoryName,
+                    'totalRevenue' => $totalRevenue,
+                    'totalCogs' => $totalCogs,
+                    'totalProfit' => $totalProfit,
+                    'profitMargin' => $profitMargin,
+                    'products' => $products
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in categoryDetails: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while fetching category details'
+            ], 500);
+        }
+    }
+
+    /**
+     * Export detailed information for a specific category to Excel.
+     */
+    public function categoryDetailsExport($category)
+    {
+        try {
+            $categoryName = urldecode($category);
+            $filename = 'category_details_' . str_replace(' ', '_', $categoryName) . '_' . date('Y-m-d_H-i-s') . '.xlsx';
+            
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                new \App\Exports\CategoryDetailsExport($categoryName),
+                $filename
+            );
+        } catch (\Exception $e) {
+            \Log::error('Error in categoryDetailsExport: ' . $e->getMessage());
+            return back()->with('error', 'An error occurred while exporting category details');
+        }
+    }
 }
