@@ -281,6 +281,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/invoices/pending-unlock-requests', [InvoiceController::class, 'listPendingUnlockRequests'])->name('invoices.pending_unlock_requests');
 
         Route::get('/reports/profit-loss', [\App\Http\Controllers\ReportController::class, 'salesProfitLoss'])->name('reports.profit_loss');
+        Route::get('/reports/category-wise', [\App\Http\Controllers\ReportController::class, 'categoryWiseReport'])->name('reports.category_wise');
+        Route::get('/reports/category-wise/export', [\App\Http\Controllers\ReportController::class, 'categoryWiseExport'])->name('reports.category_wise_export');
     });
 
 
