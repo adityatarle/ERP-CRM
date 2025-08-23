@@ -210,8 +210,27 @@ class PaymentController extends Controller
 
     public function paymentsList()
     {
-        $payments = Payment::with('purchaseEntry', 'party')->where('type', 'payable')->orderBy('payment_date', 'desc')->get();
-        return view('payments.payables.list', compact('payments'));
+        // Get all payable payments with relationships
+        $payments = Payment::with(['purchaseEntry', 'party', 'payable'])
+            ->where('type', 'payable')
+            ->orderBy('payment_date', 'desc')
+            ->get();
+
+        // Group payments by party for better organization
+        $paymentsByParty = $payments->groupBy('party_id');
+        
+        // Calculate summary statistics
+        $summary = [
+            'total_payments' => $payments->count(),
+            'total_amount' => $payments->sum('amount'),
+            'total_parties' => $paymentsByParty->count(),
+            'date_range' => [
+                'earliest' => $payments->min('payment_date'),
+                'latest' => $payments->max('payment_date')
+            ]
+        ];
+
+        return view('payments.payables.list', compact('payments', 'paymentsByParty', 'summary'));
     }
 
 
@@ -403,8 +422,23 @@ class PaymentController extends Controller
 
     $payments = $query->get();
 
-    // --- Step 7: Pass data to the view ---
-    return view('payments.receivables.list', compact('payments', 'tdsFilter', 'sortBy', 'sortDir'));
+    // --- ENHANCED: Group payments by customer for better organization ---
+    $paymentsByCustomer = $payments->groupBy('customer_id');
+    
+    // --- ENHANCED: Calculate summary statistics ---
+    $summary = [
+        'total_payments' => $payments->count(),
+        'total_amount' => $payments->sum('amount'),
+        'total_tds' => $payments->sum('tds_amount'),
+        'total_customers' => $paymentsByCustomer->count(),
+        'date_range' => [
+            'earliest' => $payments->min('payment_date'),
+            'latest' => $payments->max('payment_date')
+        ]
+    ];
+
+    // --- Step 7: Pass enhanced data to the view ---
+    return view('payments.receivables.list', compact('payments', 'paymentsByCustomer', 'summary', 'tdsFilter', 'sortBy', 'sortDir'));
 }
 
 // ...
