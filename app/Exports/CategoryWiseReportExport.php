@@ -155,7 +155,11 @@ class CategoryWiseReportExport implements FromCollection, WithHeadings, WithMapp
 
     public function collection()
     {
-        return collect($this->categoryStats);
+        // Ensure we have a collection, convert array if needed
+        if (is_array($this->categoryStats)) {
+            return collect($this->categoryStats);
+        }
+        return $this->categoryStats;
     }
 
     public function headings(): array
@@ -175,14 +179,14 @@ class CategoryWiseReportExport implements FromCollection, WithHeadings, WithMapp
     public function map($row): array
     {
         return [
-            $row->category,
-            $row->subcategories->implode(', '),
-            $row->product_count,
-            $row->total_quantity_sold,
-            $row->total_revenue,
-            $row->total_cogs,
-            $row->profit_loss,
-            round($row->profit_margin, 2),
+            $row['category'],
+            $row['subcategories']->implode(', '),
+            $row['product_count'],
+            $row['total_quantity_sold'],
+            $row['total_revenue'],
+            $row['total_cogs'],
+            $row['profit_loss'],
+            round($row['profit_margin'], 2),
         ];
     }
 
@@ -273,7 +277,11 @@ class CategorySummarySheet implements FromCollection, WithHeadings, WithMapping,
 
     public function collection()
     {
-        return collect($this->categoryStats);
+        // Ensure we have a collection, convert array if needed
+        if (is_array($this->categoryStats)) {
+            return collect($this->categoryStats);
+        }
+        return $this->categoryStats;
     }
 
     public function headings(): array
@@ -293,14 +301,14 @@ class CategorySummarySheet implements FromCollection, WithHeadings, WithMapping,
     public function map($row): array
     {
         return [
-            $row->category,
-            $row->subcategories->implode(', '),
-            $row->product_count,
-            $row->total_quantity_sold,
-            $row->total_revenue,
-            $row->total_cogs,
-            $row->profit_loss,
-            round($row->profit_margin, 2),
+            $row['category'],
+            $row['subcategories']->implode(', '),
+            $row['product_count'],
+            $row['total_quantity_sold'],
+            $row['total_revenue'],
+            $row['total_cogs'],
+            $row['profit_loss'],
+            round($row['profit_margin'], 2),
         ];
     }
 

@@ -173,7 +173,7 @@ class ReportController extends Controller
                 $categoryProfit = $categoryRevenue - $categoryCogs;
                 $profitMargin = $categoryRevenue > 0 ? ($categoryProfit / $categoryRevenue) * 100 : 0;
 
-                $categoryStats[] = (object) [
+                $categoryStats[] = [
                     'category' => $category,
                     'subcategories' => collect($subcategories)->pluck('subcategory')->unique()->filter()->values(),
                     'product_count' => $productCount,
@@ -195,8 +195,11 @@ class ReportController extends Controller
 
             // Sort categories by most profitable
             usort($categoryStats, function($a, $b) {
-                return $b->profit_loss <=> $a->profit_loss;
+                return $b['profit_loss'] <=> $a['profit_loss'];
             });
+
+            // Convert array to collection for the view
+            $categoryStats = collect($categoryStats);
 
             return view('reports.category_wise_report', compact(
                 'categoryStats',

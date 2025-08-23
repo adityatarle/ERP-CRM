@@ -107,26 +107,26 @@
                 <tbody>
                     @forelse ($categoryStats as $stat)
                         <tr>
-                            <td class="fw-bold">{{ $stat->category }}</td>
+                            <td class="fw-bold">{{ $stat['category'] }}</td>
                             <td>
-                                @if($stat->subcategories->count() > 0)
+                                @if($stat['subcategories']->count() > 0)
                                     <span class="badge bg-light text-dark me-1">
-                                        {{ $stat->subcategories->implode('</span><span class="badge bg-light text-dark me-1">') }}
+                                        {{ $stat['subcategories']->implode('</span><span class="badge bg-light text-dark me-1">') }}
                                     </span>
                                 @else
                                     <span class="text-muted">No subcategories</span>
                                 @endif
                             </td>
-                            <td class="text-center">{{ $stat->product_count }}</td>
-                            <td class="text-center">{{ number_format($stat->total_quantity_sold) }}</td>
-                            <td class="text-end">₹{{ number_format($stat->total_revenue, 2) }}</td>
-                            <td class="text-end">₹{{ number_format($stat->total_cogs, 2) }}</td>
-                            <td class="text-end fw-bold {{ $stat->profit_loss >= 0 ? 'text-success' : 'text-danger' }}">
-                                ₹{{ number_format($stat->profit_loss, 2) }}
+                            <td class="text-center">{{ $stat['product_count'] }}</td>
+                            <td class="text-center">{{ number_format($stat['total_quantity_sold']) }}</td>
+                            <td class="text-end">₹{{ number_format($stat['total_revenue'], 2) }}</td>
+                            <td class="text-end">₹{{ number_format($stat['total_cogs'], 2) }}</td>
+                            <td class="text-end fw-bold {{ $stat['profit_loss'] >= 0 ? 'text-success' : 'text-danger' }}">
+                                ₹{{ number_format($stat['profit_loss'], 2) }}
                             </td>
                             <td class="text-center">
-                                <span class="badge {{ $stat->profit_margin >= 0 ? 'bg-success' : 'bg-danger' }}">
-                                    {{ number_format($stat->profit_margin, 2) }}%
+                                <span class="badge {{ $stat['profit_margin'] >= 0 ? 'bg-success' : 'bg-danger' }}">
+                                    {{ number_format($stat['profit_margin'], 2) }}%
                                 </span>
                             </td>
                         </tr>
@@ -165,10 +165,10 @@
                     </div>
                     <div class="card-body">
                         @foreach($categoryStats->take(3) as $index => $stat)
-                            @if($stat->profit_loss > 0)
+                            @if($stat['profit_loss'] > 0)
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="fw-bold">{{ $stat->category }}</span>
-                                <span class="text-success">₹{{ number_format($stat->profit_loss, 2) }}</span>
+                                <span class="fw-bold">{{ $stat['category'] }}</span>
+                                <span class="text-success">₹{{ number_format($stat['profit_loss'], 2) }}</span>
                             </div>
                             @endif
                         @endforeach
@@ -184,8 +184,8 @@
                         @foreach($categoryStats->sortByDesc('total_revenue')->take(3) as $stat)
                         <div class="mb-2">
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold">{{ $stat->category }}</span>
-                                <span class="text-primary">₹{{ number_format($stat->total_revenue, 2) }}</span>
+                                <span class="fw-bold">{{ $stat['category'] }}</span>
+                                <span class="text-primary">₹{{ number_format($stat['total_revenue'], 2) }}</span>
                             </div>
                         </div>
                         @endforeach
