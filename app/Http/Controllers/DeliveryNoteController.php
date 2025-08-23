@@ -243,7 +243,7 @@ class DeliveryNoteController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1|max:9999',
-            'items.*.price' => 'required|numeric|min:0',
+            'items.*.price' => 'required|numeric|min:0.01|max:999999.99',
             'items.*.discount' => 'required|numeric|min:0|max:100',
             'items.*.itemcode' => 'nullable|string|max:255',
             'items.*.secondary_itemcode' => 'nullable|string|max:255',
@@ -262,6 +262,24 @@ class DeliveryNoteController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'IGST value is required when GST type is IGST.'
+                ], 422);
+            }
+        }
+
+        // ENHANCED VALIDATION: Check that all items have valid prices
+        foreach ($validated['items'] as $index => $item) {
+            if (empty($item['price']) || $item['price'] <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Item " . ($index + 1) . " must have a valid price greater than 0."
+                ], 422);
+            }
+            
+            // Check if price is a valid number
+            if (!is_numeric($item['price'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Item " . ($index + 1) . " price must be a valid number."
                 ], 422);
             }
         }
