@@ -283,6 +283,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports/profit-loss', [\App\Http\Controllers\ReportController::class, 'salesProfitLoss'])->name('reports.profit_loss');
         Route::get('/reports/category-wise', [\App\Http\Controllers\ReportController::class, 'categoryWiseReport'])->name('reports.category_wise');
         Route::get('/reports/category-wise/export', [\App\Http\Controllers\ReportController::class, 'categoryWiseExport'])->name('reports.category_wise_export');
+        Route::get('/reports/category-details/{category}', [\App\Http\Controllers\ReportController::class, 'categoryDetails'])->name('reports.category_details');
+        Route::get('/reports/category-details/{category}/export', [\App\Http\Controllers\ReportController::class, 'categoryDetailsExport'])->name('reports.category_details_export');
     });
 
     // Test route to verify reports are accessible
