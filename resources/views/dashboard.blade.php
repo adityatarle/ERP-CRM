@@ -573,6 +573,8 @@
                                 ['route' => 'purchase_entries.index', 'icon' => 'fa-file-invoice-dollar', 'label' => 'Purchase Entries', 'color' => 'subtle-secondary', 'role' => ['superadmin', 'manager']],
                                 ['route' => 'receivables', 'icon' => 'fa-hand-holding-usd', 'label' => 'Receivables', 'color' => 'subtle-primary', 'role' => ['superadmin', 'manager']],
                                 ['route' => 'payables', 'icon' => 'fa-money-bill-wave', 'label' => 'Payables', 'color' => 'subtle-success', 'role' => ['superadmin', 'manager']],
+                                ['route' => 'reports.category_wise', 'icon' => 'fa-chart-bar', 'label' => 'Category Report', 'color' => 'subtle-info', 'role' => ['superadmin']],
+                                ['route' => 'reports.profit_loss', 'icon' => 'fa-chart-line', 'label' => 'Profit Analysis', 'color' => 'subtle-warning', 'role' => ['superadmin']],
                                 ];
                                 @endphp
 
@@ -594,6 +596,51 @@
                         </div>
                     </div>
                     <!-- End of Quick Actions -->
+
+                    <!-- Reports Section -->
+                    @if (Auth::check() && Auth::user()->role === 'superadmin')
+                    <div class="container-fluid pt-4">
+                        <div class="bg-white shadow-sm rounded-3 p-4">
+                            <h5 class="fw-bold text-dark mb-4">
+                                <i class="fa fa-chart-bar me-2 text-primary"></i>Business Reports
+                            </h5>
+                            <div class="row row-cols-1 row-cols-md-2 g-4">
+                                <div class="col">
+                                    <a href="{{ route('reports.category_wise') }}" class="text-decoration-none">
+                                        <div class="card border-0 shadow-sm h-100 card-subtle-info transition-all hover-scale">
+                                            <div class="card-body d-flex flex-column align-items-center justify-content-center p-4">
+                                                <i class="fa fa-chart-bar fa-3x mb-3 text-info"></i>
+                                                <h6 class="fw-bold mb-2">Category-Wise Business Report</h6>
+                                                <p class="text-muted text-center mb-0">Analyze performance by product categories with detailed insights</p>
+                                                <div class="mt-3">
+                                                    <span class="badge bg-info text-white">Revenue Analysis</span>
+                                                    <span class="badge bg-success text-white ms-1">Profit Tracking</span>
+                                                    <span class="badge bg-warning text-white ms-1">Excel Export</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="col">
+                                    <a href="{{ route('reports.profit_loss') }}" class="text-decoration-none">
+                                        <div class="card border-0 shadow-sm h-100 card-subtle-warning transition-all hover-scale">
+                                            <div class="card-body d-flex flex-column align-items-center justify-content-center p-4">
+                                                <i class="fa fa-chart-line fa-3x mb-3 text-warning"></i>
+                                                <h6 class="fw-bold mb-2">Sales & Profit Analysis</h6>
+                                                <p class="text-muted text-center mb-0">Comprehensive sales performance and profit/loss analysis</p>
+                                                <div class="mt-3">
+                                                    <span class="badge bg-warning text-white">Sales Analysis</span>
+                                                    <span class="badge bg-success text-white ms-1">Profit/Loss</span>
+                                                    <span class="badge bg-primary text-white ms-1">Product Performance</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
 
                     <!-- Main Content with Tables -->
                     <!-- STRUCTURE: Wrap tables in a container and row for proper layout -->

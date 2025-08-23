@@ -285,6 +285,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports/category-wise/export', [\App\Http\Controllers\ReportController::class, 'categoryWiseExport'])->name('reports.category_wise_export');
     });
 
+    // Test route to verify reports are accessible
+    Route::get('/test-reports', function () {
+        return response()->json([
+            'message' => 'Reports are accessible',
+            'routes' => [
+                'profit_loss' => route('reports.profit_loss'),
+                'category_wise' => route('reports.category_wise'),
+                'category_wise_export' => route('reports.category_wise_export'),
+            ]
+        ]);
+    })->middleware('superadmin');
+
 
 
 
