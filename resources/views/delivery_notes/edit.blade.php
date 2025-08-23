@@ -100,6 +100,43 @@
         margin-top: 0.25rem;
     }
 
+    /* Enhanced validation styling */
+    .form-control.is-valid {
+        border-color: #198754;
+        padding-right: calc(1.5em + 0.75rem);
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.94-.94 2.89 2.89 2.89-2.89.94.94L5.8 9.66z'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        padding-right: calc(1.5em + 0.75rem);
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 4.6 1.4 1.4L5.8 7.4'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+
+    .form-control.is-valid:focus,
+    .form-control.is-invalid:focus {
+        box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
+    }
+
+    .form-control.is-invalid:focus {
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+    }
+
+    /* Price field specific styling */
+    .price-input:required {
+        border-left: 3px solid #dc3545;
+    }
+
+    .price-input:required:valid {
+        border-left: 3px solid #198754;
+    }
+
     /* Totals Section */
     .totals-card {
         background-color: #fff;
@@ -500,29 +537,37 @@
 
         function validateRow(row) {
             let rowIsValid = true;
-            const errorSpans = row.querySelectorAll('.validation-error');
-            errorSpans.forEach(span => span.textContent = ''); // Clear previous errors
-
-            // Validate product selection
-            const productIdInput = row.querySelector('input[name*="[product_id]"]');
-            if (!productIdInput || !productIdInput.value) {
-                row.querySelector('.item-name-display').nextElementSibling.textContent = 'Please select an item.';
-                rowIsValid = false;
-            }
+            
+            // Clear previous validation errors
+            row.querySelectorAll('.validation-error').forEach(error => error.textContent = '');
+            
             // Validate quantity
-            const qtyInput = row.querySelector('.quantity-input');
-            const quantity = parseFloat(qtyInput.value);
+            const quantityInput = row.querySelector('.quantity-input');
+            const quantity = parseInt(quantityInput.value);
             if (isNaN(quantity) || quantity <= 0) {
-                qtyInput.nextElementSibling.textContent = 'Qty must be > 0.';
+                row.querySelector('.quantity-input').closest('div').nextElementSibling.textContent = 'Quantity must be greater than 0.';
                 rowIsValid = false;
             }
-            // Validate price
+            
+            // Validate price - ENHANCED VALIDATION
             const priceInput = row.querySelector('.price-input');
             const price = parseFloat(priceInput.value);
-            if (isNaN(price) || price < 0) {
-                priceInput.closest('.input-group').nextElementSibling.textContent = 'Price cannot be negative.';
+            if (isNaN(price) || price <= 0) {
+                priceInput.closest('.input-group').nextElementSibling.textContent = 'Price must be greater than 0.';
+                rowIsValid = false;
+            } else if (price < 0.01) {
+                priceInput.closest('.input-group').nextElementSibling.textContent = 'Price must be at least ₹0.01.';
                 rowIsValid = false;
             }
+            
+            // Validate discount
+            const discountInput = row.querySelector('.discount-input');
+            const discount = parseFloat(discountInput.value);
+            if (isNaN(discount) || discount < 0 || discount > 100) {
+                discountInput.closest('.input-group').nextElementSibling.textContent = 'Discount must be between 0 and 100.';
+                rowIsValid = false;
+            }
+            
             return rowIsValid;
         }
 
@@ -538,9 +583,32 @@
                 errorMessages.push('At least one item is required to create an invoice.');
                 isValid = false;
             }
-            itemsList.querySelectorAll('.item-row').forEach(row => {
-                if (!validateRow(row)) isValid = false;
+            
+            // Enhanced item validation with specific price checks
+            let hasValidPrices = true;
+            itemsList.querySelectorAll('.item-row').forEach((row, index) => {
+                if (!validateRow(row)) {
+                    isValid = false;
+                }
+                
+                // Additional price validation
+                const priceInput = row.querySelector('.price-input');
+                const price = parseFloat(priceInput.value);
+                if (isNaN(price) || price <= 0) {
+                    hasValidPrices = false;
+                    errorMessages.push(`Item ${index + 1}: Price must be greater than 0.`);
+                }
+                
+                // Check if price field is empty
+                if (!priceInput.value.trim()) {
+                    hasValidPrices = false;
+                    errorMessages.push(`Item ${index + 1}: Price field cannot be empty.`);
+                }
             });
+            
+            if (!hasValidPrices) {
+                isValid = false;
+            }
 
             // Enhanced financial validation
             const gstType = gstTypeSelect.value;
@@ -627,6 +695,12 @@
             e.preventDefault();
             form.action = "{{ route('delivery_notes.convert_to_invoice', $deliveryNote) }}";
             reindexItemInputs();
+            
+            // Additional validation before calling validateFormForInvoice
+            if (!validateAllPriceFields()) {
+                return;
+            }
+            
             if (!validateFormForInvoice()) return;
 
             const submitButton = this;
@@ -654,6 +728,51 @@
                     submitButton.innerHTML = 'Update & Convert to Invoice';
                 });
         });
+
+        // NEW FUNCTION: Validate all price fields before form submission
+        function validateAllPriceFields() {
+            let allPricesValid = true;
+            const priceInputs = document.querySelectorAll('.price-input');
+            
+            priceInputs.forEach((input, index) => {
+                const price = parseFloat(input.value);
+                const row = input.closest('.item-row');
+                const errorSpan = row.querySelector('.validation-error');
+                
+                // Clear previous errors
+                if (errorSpan) errorSpan.textContent = '';
+                
+                // Check if price is empty
+                if (!input.value.trim()) {
+                    errorSpan.textContent = 'Price is required for invoice conversion.';
+                    input.classList.add('is-invalid');
+                    allPricesValid = false;
+                    return;
+                }
+                
+                // Check if price is valid number and greater than 0
+                if (isNaN(price) || price <= 0) {
+                    errorSpan.textContent = 'Price must be greater than 0.';
+                    input.classList.add('is-invalid');
+                    allPricesValid = false;
+                    return;
+                }
+                
+                // Price is valid, remove error styling
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+            });
+            
+            if (!allPricesValid) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Price Validation Failed',
+                    text: 'Please ensure all items have valid prices before converting to invoice.',
+                });
+            }
+            
+            return allPricesValid;
+        }
 
         customerSearchInput.addEventListener('input', function () {
             const query = this.value.toLowerCase();
@@ -712,8 +831,42 @@
         itemsList.addEventListener('input', e => {
             if (e.target.matches('.quantity-input, .price-input, .discount-input')) {
                 calculateTotals();
+                
+                // Real-time price validation
+                if (e.target.matches('.price-input')) {
+                    validatePriceField(e.target);
+                }
             }
         });
+
+        // NEW FUNCTION: Real-time price validation
+        function validatePriceField(priceInput) {
+            const price = parseFloat(priceInput.value);
+            const row = priceInput.closest('.item-row');
+            const errorSpan = row.querySelector('.validation-error');
+            
+            // Clear previous validation states
+            priceInput.classList.remove('is-valid', 'is-invalid');
+            
+            // Check if price is empty
+            if (!priceInput.value.trim()) {
+                if (errorSpan) errorSpan.textContent = 'Price is required for invoice conversion.';
+                priceInput.classList.add('is-invalid');
+                return false;
+            }
+            
+            // Check if price is valid number and greater than 0
+            if (isNaN(price) || price <= 0) {
+                if (errorSpan) errorSpan.textContent = 'Price must be greater than 0.';
+                priceInput.classList.add('is-invalid');
+                return false;
+            }
+            
+            // Price is valid
+            if (errorSpan) errorSpan.textContent = '';
+            priceInput.classList.add('is-valid');
+            return true;
+        }
 
         document.addEventListener('click', e => {
             if (!customerSuggestionsBox.contains(e.target) && e.target !== customerSearchInput) customerSuggestionsBox.style.display = 'none';
@@ -725,6 +878,17 @@
         // Initial Calculations on page load
         calculateTotals();
         updateGSTFields();
+        
+        // Validate existing price fields on page load
+        validateAllExistingPriceFields();
+        
+        // NEW FUNCTION: Validate all existing price fields on page load
+        function validateAllExistingPriceFields() {
+            const priceInputs = document.querySelectorAll('.price-input');
+            priceInputs.forEach(input => {
+                validatePriceField(input);
+            });
+        }
     });
     </script>
 </body>

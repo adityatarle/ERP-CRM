@@ -99,7 +99,7 @@ public function store(Request $request)
                 'products' => 'required|array|min:1',
                 'products.*.product_id' => 'required|exists:products,id',
                 'products.*.quantity' => 'required|integer|min:1|max:9999',
-                'products.*.sale_price' => 'required|numeric|min:0',
+                'products.*.sale_price' => 'required|numeric|min:0.01|max:999999.99',
                 'products.*.discount' => 'required|numeric|min:0|max:100',
                 'products.*.itemcode' => 'nullable|string|max:255',
                 'products.*.secondary_itemcode' => 'nullable|string|max:255',
@@ -112,6 +112,26 @@ public function store(Request $request)
                 'purchase_date' => 'required|date',
                 'contact_person' => 'nullable|string',
             ]);
+            
+            // ENHANCED VALIDATION: Check that all products have valid sale prices
+            foreach ($validated['products'] as $index => $productData) {
+                if (empty($productData['sale_price']) || $productData['sale_price'] <= 0) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false, 
+                        'message' => "Product " . ($index + 1) . " must have a valid sale price greater than 0."
+                    ], 422);
+                }
+                
+                // Check if sale_price is a valid number
+                if (!is_numeric($productData['sale_price'])) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false, 
+                        'message' => "Product " . ($index + 1) . " sale price must be a valid number."
+                    ], 422);
+                }
+            }
             
             $totalSalePrice = 0;
             $saleItemsData = [];
