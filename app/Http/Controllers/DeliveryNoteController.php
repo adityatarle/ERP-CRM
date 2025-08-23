@@ -219,6 +219,14 @@ class DeliveryNoteController extends Controller
     {
         Log::info('Attempting to convert Delivery Note to Invoice.', ['dn_id' => $deliveryNote->id]);
 
+        // Check if delivery note is already invoiced
+        if ($deliveryNote->is_invoiced) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'This delivery note has already been converted to an invoice.'
+            ], 422);
+        }
+
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'ref_no' => 'nullable|string|max:255',
@@ -241,8 +249,28 @@ class DeliveryNoteController extends Controller
             'items.*.secondary_itemcode' => 'nullable|string|max:255',
         ]);
 
+        // Additional validation for financial details
+        if ($validated['gst_type'] === 'CGST') {
+            if (empty($validated['cgst']) || empty($validated['sgst'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'CGST and SGST values are required when GST type is CGST.'
+                ], 422);
+            }
+        } elseif ($validated['gst_type'] === 'IGST') {
+            if (empty($validated['igst'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'IGST value is required when GST type is IGST.'
+                ], 422);
+            }
+        }
+
         DB::beginTransaction();
         try {
+            // Mark delivery note as invoiced BEFORE creating invoice to prevent double processing
+            $deliveryNote->update(['is_invoiced' => true]);
+
             // THE FIX: Prepare data safely for the InvoiceController
             $invoiceRequestData = [
                 'customer_id' => $validated['customer_id'],
@@ -275,12 +303,17 @@ class DeliveryNoteController extends Controller
             $invoiceResponseData = json_decode($invoiceResponse->getContent(), true);
 
             if (!$invoiceResponseData['success']) {
+                // Rollback the is_invoiced flag if invoice creation fails
+                $deliveryNote->update(['is_invoiced' => false]);
                 throw new \Exception('Invoice creation failed: ' . ($invoiceResponseData['message'] ?? 'Unknown error.'));
             }
 
-            // If invoice creation succeeds, delete the original delivery note
-            $deliveryNote->items()->delete();
-            $deliveryNote->delete();
+            // If invoice creation succeeds, mark delivery note as invoiced but don't delete it
+            // This maintains audit trail and prevents double processing
+            Log::info('Delivery note successfully converted to invoice', [
+                'dn_id' => $deliveryNote->id,
+                'invoice_response' => $invoiceResponseData
+            ]);
 
             DB::commit();
             return response()->json([

@@ -542,27 +542,42 @@
                 if (!validateRow(row)) isValid = false;
             });
 
+            // Enhanced financial validation
             const gstType = gstTypeSelect.value;
             if (!gstType) {
                 errorMessages.push('GST Type must be selected for an invoice.');
                 isValid = false;
             } else if (gstType === 'CGST') {
-                if (!document.getElementById('cgst')?.value || !document.getElementById('sgst')?.value) {
-                    errorMessages.push('CGST and SGST values are required.');
+                const cgst = document.getElementById('cgst')?.value;
+                const sgst = document.getElementById('sgst')?.value;
+                if (!cgst || cgst <= 0) {
+                    errorMessages.push('CGST value is required and must be greater than 0.');
+                    isValid = false;
+                }
+                if (!sgst || sgst <= 0) {
+                    errorMessages.push('SGST value is required and must be greater than 0.');
                     isValid = false;
                 }
             } else if (gstType === 'IGST') {
-                if (!document.getElementById('igst')?.value) {
-                    errorMessages.push('IGST value is required.');
+                const igst = document.getElementById('igst')?.value;
+                if (!igst || igst <= 0) {
+                    errorMessages.push('IGST value is required and must be greater than 0.');
                     isValid = false;
                 }
+            }
+
+            // Check if delivery note is already invoiced (additional safety check)
+            const isInvoiced = {{ $deliveryNote->is_invoiced ? 'true' : 'false' }};
+            if (isInvoiced) {
+                errorMessages.push('This delivery note has already been converted to an invoice.');
+                isValid = false;
             }
 
             if (!isValid) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Cannot Convert to Invoice',
-                    html: `Please fix the following issues:<br><ul class="text-start mt-2">${errorMessages.join('') ? errorMessages.map(msg => `<li>${msg}</li>`).join('') : '<li>Please ensure all item fields are filled correctly.</li>'}</ul>`,
+                    html: `Please fix the following issues:<br><ul class="text-start mt-2">${errorMessages.map(msg => `<li>${msg}</li>`).join('')}</ul>`,
                 });
             }
             return isValid;

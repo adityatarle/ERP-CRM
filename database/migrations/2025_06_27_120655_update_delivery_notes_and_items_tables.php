@@ -73,6 +73,13 @@ return new class extends Migration
             }
         });
 
+        // Add index for better performance on is_invoiced queries
+        if (!Schema::hasIndex('delivery_notes', 'delivery_notes_is_invoiced_index')) {
+            Schema::table('delivery_notes', function (Blueprint $table) {
+                $table->index('is_invoiced', 'delivery_notes_is_invoiced_index');
+            });
+        }
+
         // Update delivery_note_items table
         Schema::table('delivery_note_items', function (Blueprint $table) {
             if (!Schema::hasColumn('delivery_note_items', 'discount')) {
