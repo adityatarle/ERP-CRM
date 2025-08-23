@@ -119,9 +119,14 @@ public function store(Request $request)
             $gstType = $validated['gst_type'];
             $gstRate = ($gstType === 'CGST') ? (($validated['cgst'] ?? 9) + ($validated['sgst'] ?? 9)) : ($validated['igst'] ?? 18);
 
+            // Check if this is a conversion from delivery note (has purchase_number and purchase_date)
+            $isFromDeliveryNote = !empty($validated['purchase_number']) && !empty($validated['purchase_date']);
+
             foreach ($validated['products'] as $index => $productData) {
                 $product = Product::findOrFail($productData['product_id']);
-                if ($product->stock < $productData['quantity']) {
+                
+                // Only check stock if NOT converting from delivery note (since stock was already updated)
+                if (!$isFromDeliveryNote && $product->stock < $productData['quantity']) {
                     DB::rollBack();
                     return response()->json(['success' => false, 'message' => "Insufficient stock for product {$product->name}."], 422);
                 }
@@ -158,7 +163,10 @@ public function store(Request $request)
             
             foreach ($saleItemsData as $itemData) {
                 $sale->saleItems()->create($itemData);
-                Product::find($itemData['product_id'])->decrement('stock', $itemData['quantity']);
+                // Only decrement stock if NOT converting from delivery note
+                if (!$isFromDeliveryNote) {
+                    Product::find($itemData['product_id'])->decrement('stock', $itemData['quantity']);
+                }
             }
 
             $subtotal = $totalSalePrice;
