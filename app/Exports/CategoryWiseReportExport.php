@@ -34,28 +34,29 @@ class CategoryWiseReportExport implements FromCollection, WithHeadings, WithMapp
 
     private function calculateCategoryStats()
     {
-        // --- 1. Calculate Average Purchase Cost for All Products ---
-        $allPurchaseItems = PurchaseEntryItem::where('status', 'received')->get();
-        $productCosts = [];
+        try {
+            // --- 1. Calculate Average Purchase Cost for All Products ---
+            $allPurchaseItems = PurchaseEntryItem::where('status', 'received')->get();
+            $productCosts = [];
 
-        // Group purchases by product to calculate weighted average cost efficiently
-        $groupedPurchases = $allPurchaseItems->groupBy('product_id');
+            // Group purchases by product to calculate weighted average cost efficiently
+            $groupedPurchases = $allPurchaseItems->groupBy('product_id');
 
-        foreach ($groupedPurchases as $productId => $items) {
-            $totalCost = $items->sum(function($item) {
-                return ($item->unit_price * (1 - ($item->discount ?? 0) / 100)) * $item->quantity;
-            });
-            $totalQuantity = $items->sum('quantity');
+            foreach ($groupedPurchases as $productId => $items) {
+                $totalCost = $items->sum(function($item) {
+                    return ($item->unit_price * (1 - ($item->discount ?? 0) / 100)) * $item->quantity;
+                });
+                $totalQuantity = $items->sum('quantity');
 
-            $productCosts[$productId] = $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
-        }
+                $productCosts[$productId] = $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
+            }
 
-        // --- 2. Get All Sale Items with Product and Category Information ---
-        $saleItems = SaleItem::with(['product:id,name,category,subcategory,sku'])
-            ->whereHas('product', function($query) {
-                $query->whereNotNull('category');
-            })
-            ->get();
+            // --- 2. Get All Sale Items with Product and Category Information ---
+            $saleItems = SaleItem::with(['product:id,name,category,subcategory,item_code,hsn'])
+                ->whereHas('product', function($query) {
+                    $query->whereNotNull('category');
+                })
+                ->get();
 
         // --- 3. Group by Category and Calculate Stats ---
         $categoryStats = [];
@@ -134,6 +135,22 @@ class CategoryWiseReportExport implements FromCollection, WithHeadings, WithMapp
             'quantity' => $grandTotalQuantity,
             'profit_margin' => $grandTotalProfitMargin
         ];
+        
+        } catch (\Exception $e) {
+            // Log the error for debugging
+            \Log::error('Error in CategoryWiseReportExport: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            // Set empty data to prevent further errors
+            $this->categoryStats = [];
+            $this->grandTotals = (object) [
+                'revenue' => 0,
+                'cogs' => 0,
+                'profit' => 0,
+                'quantity' => 0,
+                'profit_margin' => 0
+            ];
+        }
     }
 
     public function collection()

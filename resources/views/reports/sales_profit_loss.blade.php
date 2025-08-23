@@ -42,7 +42,7 @@
                 <thead>
                     <tr class="text-dark">
                         <th scope="col">Product Name</th>
-                        <th scope="col">SKU</th>
+                        <th scope="col">Item Code</th>
                         <th scope="col">Total Qty Sold</th>
                         <th scope="col">Total Revenue</th>
                         <th scope="col">Total Cost (COGS)</th>
@@ -53,7 +53,7 @@
                     @forelse ($productStats as $stat)
                         <tr>
                             <td>{{ $stat->name }}</td>
-                            <td>{{ $stat->sku ?? 'N/A' }}</td>
+                            <td>{{ $stat->item_code ?? 'N/A' }}</td>
                             <td>{{ $stat->quantity_sold }}</td>
                             <td>₹{{ number_format($stat->total_revenue, 2) }}</td>
                             <td>₹{{ number_format($stat->total_cogs, 2) }}</td>

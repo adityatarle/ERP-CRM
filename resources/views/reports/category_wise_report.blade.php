@@ -75,7 +75,7 @@
                     <i class="fa fa-shopping-cart fa-3x text-orange"></i>
                     <div class="ms-3 text-end">
                         <p class="mb-2">Total Products</p>
-                        <h6 class="mb-0">{{ $categoryStats->sum('product_count') }}</h6>
+                        <h6 class="mb-0">{{ $categoryStats ? $categoryStats->sum('product_count') : 0 }}</h6>
                     </div>
                 </div>
             </div>
@@ -84,7 +84,7 @@
                     <i class="fa fa-chart-bar fa-3x text-teal"></i>
                     <div class="ms-3 text-end">
                         <p class="mb-2">Avg. Profit Margin</p>
-                        <h6 class="mb-0">{{ number_format($categoryStats->avg('profit_margin'), 2) }}%</h6>
+                        <h6 class="mb-0">{{ $categoryStats && $categoryStats->count() > 0 ? number_format($categoryStats->avg('profit_margin'), 2) : 0 }}%</h6>
                     </div>
                 </div>
             </div>
@@ -156,7 +156,7 @@
         </div>
 
         {{-- Performance Insights --}}
-        @if(count($categoryStats) > 0)
+        @if($categoryStats && count($categoryStats) > 0)
         <div class="row mt-4">
             <div class="col-md-6">
                 <div class="card">
@@ -182,12 +182,24 @@
                     </div>
                     <div class="card-body">
                         @foreach($categoryStats->sortByDesc('total_revenue')->take(3) as $stat)
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="fw-bold">{{ $stat->category }}</span>
-                            <span class="text-primary">₹{{ number_format($stat->total_revenue, 2) }}</span>
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold">{{ $stat->category }}</span>
+                                <span class="text-primary">₹{{ number_format($stat->total_revenue, 2) }}</span>
+                            </div>
                         </div>
                         @endforeach
                     </div>
+                </div>
+            </div>
+        </div>
+        @else
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fa fa-info-circle me-2"></i>
+                    <strong>No Category Data Available</strong><br>
+                    <small class="text-muted">This report requires products with assigned categories and sales data.</small>
                 </div>
             </div>
         </div>

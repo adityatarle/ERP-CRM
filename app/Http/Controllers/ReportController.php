@@ -64,7 +64,7 @@ class ReportController extends Controller
             // Store stats for this product
             $productStats[] = (object) [
                 'name' => $items->first()->product->name,
-                'sku' => $items->first()->product->sku,
+                'item_code' => $items->first()->product->item_code,
                 'quantity_sold' => $totalQuantitySold,
                 'total_revenue' => $totalRevenue,
                 'total_cogs' => $totalCogsForProduct,
@@ -93,106 +93,128 @@ class ReportController extends Controller
      */
     public function categoryWiseReport()
     {
-        // --- 1. Calculate Average Purchase Cost for All Products ---
-        $allPurchaseItems = PurchaseEntryItem::where('status', 'received')->get();
-        $productCosts = [];
+        try {
+            // --- 1. Calculate Average Purchase Cost for All Products ---
+            $allPurchaseItems = PurchaseEntryItem::where('status', 'received')->get();
+            $productCosts = [];
 
-        // Group purchases by product to calculate weighted average cost efficiently
-        $groupedPurchases = $allPurchaseItems->groupBy('product_id');
+            // Group purchases by product to calculate weighted average cost efficiently
+            $groupedPurchases = $allPurchaseItems->groupBy('product_id');
 
-        foreach ($groupedPurchases as $productId => $items) {
-            $totalCost = $items->sum(function($item) {
-                return ($item->unit_price * (1 - ($item->discount ?? 0) / 100)) * $item->quantity;
-            });
-            $totalQuantity = $items->sum('quantity');
+            foreach ($groupedPurchases as $productId => $items) {
+                $totalCost = $items->sum(function($item) {
+                    return ($item->unit_price * (1 - ($item->discount ?? 0) / 100)) * $item->quantity;
+                });
+                $totalQuantity = $items->sum('quantity');
 
-            $productCosts[$productId] = $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
-        }
-
-        // --- 2. Get All Sale Items with Product and Category Information ---
-        $saleItems = SaleItem::with(['product:id,name,category,subcategory,sku'])
-            ->whereHas('product', function($query) {
-                $query->whereNotNull('category');
-            })
-            ->get();
-
-        // --- 3. Group by Category and Calculate Stats ---
-        $categoryStats = [];
-        $grandTotalRevenue = 0;
-        $grandTotalCogs = 0;
-        $grandTotalQuantity = 0;
-
-        // Group sales by category
-        $salesByCategory = $saleItems->groupBy('product.category');
-
-        foreach ($salesByCategory as $category => $items) {
-            $categoryRevenue = 0;
-            $categoryCogs = 0;
-            $categoryQuantity = 0;
-            $productCount = 0;
-            $subcategories = [];
-
-            foreach ($items as $item) {
-                if (!$item->product) continue;
-
-                $quantity = $item->quantity;
-                $revenue = $quantity * $item->unit_price;
-                $averageCost = $productCosts[$item->product_id] ?? 0;
-                $cogs = $averageCost * $quantity;
-
-                $categoryRevenue += $revenue;
-                $categoryCogs += $cogs;
-                $categoryQuantity += $quantity;
-
-                // Track unique products and subcategories
-                if (!in_array($item->product->id, array_column($subcategories, 'product_id'))) {
-                    $productCount++;
-                }
-
-                if ($item->product->subcategory && !in_array($item->product->subcategory, array_column($subcategories, 'subcategory'))) {
-                    $subcategories[] = [
-                        'subcategory' => $item->product->subcategory,
-                        'product_id' => $item->product->id
-                    ];
-                }
+                $productCosts[$productId] = $totalQuantity > 0 ? $totalCost / $totalQuantity : 0;
             }
 
-            $categoryProfit = $categoryRevenue - $categoryCogs;
-            $profitMargin = $categoryRevenue > 0 ? ($categoryProfit / $categoryRevenue) * 100 : 0;
+            // --- 2. Get All Sale Items with Product and Category Information ---
+            $saleItems = SaleItem::with(['product:id,name,category,subcategory,item_code,hsn'])
+                ->whereHas('product', function($query) {
+                    $query->whereNotNull('category');
+                })
+                ->get();
 
-            $categoryStats[] = (object) [
-                'category' => $category,
-                'subcategories' => collect($subcategories)->pluck('subcategory')->unique()->filter()->values(),
-                'product_count' => $productCount,
-                'total_quantity_sold' => $categoryQuantity,
-                'total_revenue' => $categoryRevenue,
-                'total_cogs' => $categoryCogs,
-                'profit_loss' => $categoryProfit,
-                'profit_margin' => $profitMargin,
-            ];
+            // Debug: Check if we have sale items
+            if ($saleItems->isEmpty()) {
+                return view('reports.category_wise_report', [
+                    'categoryStats' => [],
+                    'grandTotalRevenue' => 0,
+                    'grandTotalCogs' => 0,
+                    'grandTotalProfit' => 0,
+                    'grandTotalQuantity' => 0,
+                    'grandTotalProfitMargin' => 0
+                ]);
+            }
 
-            // Add to grand totals
-            $grandTotalRevenue += $categoryRevenue;
-            $grandTotalCogs += $categoryCogs;
-            $grandTotalQuantity += $categoryQuantity;
+            // --- 3. Group by Category and Calculate Stats ---
+            $categoryStats = [];
+            $grandTotalRevenue = 0;
+            $grandTotalCogs = 0;
+            $grandTotalQuantity = 0;
+
+            // Group sales by category
+            $salesByCategory = $saleItems->groupBy('product.category');
+
+            foreach ($salesByCategory as $category => $items) {
+                $categoryRevenue = 0;
+                $categoryCogs = 0;
+                $categoryQuantity = 0;
+                $productCount = 0;
+                $subcategories = [];
+
+                foreach ($items as $item) {
+                    if (!$item->product) continue;
+
+                    $quantity = $item->quantity;
+                    $revenue = $quantity * $item->unit_price;
+                    $averageCost = $productCosts[$item->product_id] ?? 0;
+                    $cogs = $averageCost * $quantity;
+
+                    $categoryRevenue += $revenue;
+                    $categoryCogs += $cogs;
+                    $categoryQuantity += $quantity;
+
+                    // Track unique products and subcategories
+                    if (!in_array($item->product->id, array_column($subcategories, 'product_id'))) {
+                        $productCount++;
+                    }
+
+                    if ($item->product->subcategory && !in_array($item->product->subcategory, array_column($subcategories, 'subcategory'))) {
+                        $subcategories[] = [
+                            'subcategory' => $item->product->subcategory,
+                            'product_id' => $item->product->id
+                        ];
+                    }
+                }
+
+                $categoryProfit = $categoryRevenue - $categoryCogs;
+                $profitMargin = $categoryRevenue > 0 ? ($categoryProfit / $categoryRevenue) * 100 : 0;
+
+                $categoryStats[] = (object) [
+                    'category' => $category,
+                    'subcategories' => collect($subcategories)->pluck('subcategory')->unique()->filter()->values(),
+                    'product_count' => $productCount,
+                    'total_quantity_sold' => $categoryQuantity,
+                    'total_revenue' => $categoryRevenue,
+                    'total_cogs' => $categoryCogs,
+                    'profit_loss' => $categoryProfit,
+                    'profit_margin' => $profitMargin,
+                ];
+
+                // Add to grand totals
+                $grandTotalRevenue += $categoryRevenue;
+                $grandTotalCogs += $categoryCogs;
+                $grandTotalQuantity += $categoryQuantity;
+            }
+
+            $grandTotalProfit = $grandTotalRevenue - $grandTotalCogs;
+            $grandTotalProfitMargin = $grandTotalRevenue > 0 ? ($grandTotalProfit / $grandTotalRevenue) * 100 : 0;
+
+            // Sort categories by most profitable
+            usort($categoryStats, function($a, $b) {
+                return $b->profit_loss <=> $a->profit_loss;
+            });
+
+            return view('reports.category_wise_report', compact(
+                'categoryStats',
+                'grandTotalRevenue',
+                'grandTotalCogs',
+                'grandTotalProfit',
+                'grandTotalQuantity',
+                'grandTotalProfitMargin'
+            ));
+
+        } catch (\Exception $e) {
+            // Log the error for debugging
+            \Log::error('Error in categoryWiseReport: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            // Return a simple error view or redirect
+            return back()->with('error', 'An error occurred while generating the report. Please check the logs for details.');
         }
-
-        $grandTotalProfit = $grandTotalRevenue - $grandTotalCogs;
-        $grandTotalProfitMargin = $grandTotalRevenue > 0 ? ($grandTotalProfit / $grandTotalRevenue) * 100 : 0;
-
-        // Sort categories by most profitable
-        usort($categoryStats, function($a, $b) {
-            return $b->profit_loss <=> $a->profit_loss;
-        });
-
-        return view('reports.category_wise_report', compact(
-            'categoryStats',
-            'grandTotalRevenue',
-            'grandTotalCogs',
-            'grandTotalProfit',
-            'grandTotalQuantity',
-            'grandTotalProfitMargin'
-        ));
     }
 
     /**
