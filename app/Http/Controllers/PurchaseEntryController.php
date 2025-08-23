@@ -48,15 +48,21 @@ class PurchaseEntryController extends Controller
         // We clone the query to avoid affecting the pagination query
         $filteredEntriesForTotal = $query->clone()->get();
         $filteredTotal = $filteredEntriesForTotal->flatMap->items->sum('total_price');
+        
+        // Calculate overall totals (without filters) for comparison
+        $overallTotal = PurchaseEntry::with('items')->get()->flatMap->items->sum('total_price');
+        $overallCount = PurchaseEntry::count();
         // --- END OF FIX ---
 
         // 5. Now, apply ordering and pagination to the original query for display
         $purchaseEntries = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
 
-        // 6. Pass all data, including the new total, to the view
+        // 6. Pass all data, including the new totals, to the view
         return view('purchase_entries.index', compact(
             'purchaseEntries',
-            'filteredTotal', // Pass the new total
+            'filteredTotal', // Pass the filtered total
+            'overallTotal',  // Pass the overall total
+            'overallCount',  // Pass the overall count
             'invoiceNumber',
             'partyName',
             'startDate',
