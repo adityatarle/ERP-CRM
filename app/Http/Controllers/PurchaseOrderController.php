@@ -91,62 +91,68 @@ class PurchaseOrderController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'party_id' => 'required|exists:parties,id',
-            'order_date' => 'required|date',
-            'customer_name' => 'nullable|string|max:255', // New validation rule
-            'products' => 'required|array',
-            'products.*.product_id' => 'required|exists:products,id',
-            'products.*.quantity' => 'required|integer|min:1',
-            'products.*.unit_price' => 'required|numeric|min:0',
-            'products.*.discount' => 'nullable|numeric|min:0|max:100',
-            'products.*.cgst' => 'nullable|numeric|min:0|max:28',
-            'products.*.sgst' => 'nullable|numeric|min:0|max:28',
-            'products.*.igst' => 'nullable|numeric|min:0|max:28',
-        ]);
+{
+    // --- UPDATED VALIDATION ---
+    $validated = $request->validate([
+        'party_id' => 'required|exists:parties,id',
+        'order_date' => 'required|date',
+        // 'customer_name' or 'buyer_name' at the top level is REMOVED
+        'products' => 'required|array',
+        'products.*.product_id' => 'required|exists:products,id',
+        'products.*.buyer_name' => 'nullable|string|max:255', // <-- VALIDATION IS MOVED HERE
+        'products.*.quantity' => 'required|integer|min:1',
+        'products.*.unit_price' => 'required|numeric|min:0',
+        'products.*.discount' => 'nullable|numeric|min:0|max:100',
+        'products.*.cgst' => 'nullable|numeric|min:0',
+        'products.*.sgst' => 'nullable|numeric|min:0',
+        'products.*.igst' => 'nullable|numeric|min:0',
+    ]);
 
-        try {
-            DB::transaction(function () use ($validated, &$purchaseOrder) {
-                $purchaseOrder = PurchaseOrder::create([
-                    'purchase_order_number' => 'PO-' . Str::random(8),
-                    'party_id' => $validated['party_id'],
-                    'order_date' => $validated['order_date'],
-                    'customer_name' => $validated['customer_name'] ?? null, // Add this lin
-                    'status' => 'pending',
+    try {
+        DB::transaction(function () use ($validated) { // Removed &$purchaseOrder from use()
+            // The PurchaseOrder creation is now simpler
+            $purchaseOrder = PurchaseOrder::create([
+                'purchase_order_number' => 'PO-' . Str::upper(Str::random(8)),
+                'party_id' => $validated['party_id'],
+                'order_date' => $validated['order_date'],
+                'status' => 'pending',
+                // 'customer_name' or 'buyer_name' is REMOVED from here
+            ]);
+
+            foreach ($validated['products'] as $item) {
+                // Calculation logic is the same
+                $discount = $item['discount'] ?? 0;
+                $cgst = $item['cgst'] ?? 0;
+                $sgst = $item['sgst'] ?? 0;
+                $igst = $item['igst'] ?? 0;
+                $unitPrice = floatval($item['unit_price']);
+                $quantity = intval($item['quantity']);
+                $discountedPrice = $unitPrice * (1 - ($discount / 100));
+                $totalTaxRate = ($cgst + $sgst + $igst) / 100;
+                $totalPrice = $quantity * $discountedPrice * (1 + $totalTaxRate);
+
+                // --- UPDATED ITEM CREATION ---
+                PurchaseOrderItem::create([
+                    'purchase_order_id' => $purchaseOrder->id,
+                    'product_id' => $item['product_id'],
+                    'buyer_name' => $item['buyer_name'] ?? null, // <-- ADD THIS LINE
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'discount' => $discount,
+                    'cgst' => $cgst,
+                    'sgst' => $sgst,
+                    'igst' => $igst,
+                    'total_price' => $totalPrice,
                 ]);
+            }
+        });
 
-                foreach ($validated['products'] as $item) {
-                    $discount = isset($item['discount']) ? floatval($item['discount']) : 0;
-                    $cgst = isset($item['cgst']) ? floatval($item['cgst']) : 0;
-                    $sgst = isset($item['sgst']) ? floatval($item['sgst']) : 0;
-                    $igst = isset($item['igst']) ? floatval($item['igst']) : 0;
-                    $unitPrice = floatval($item['unit_price']);
-                    $quantity = intval($item['quantity']);
-                    $discountedPrice = $unitPrice * (1 - ($discount / 100));
-                    $totalTaxRate = ($cgst + $sgst + $igst) / 100;
-                    $totalPrice = $quantity * $discountedPrice * (1 + $totalTaxRate);
-
-                    PurchaseOrderItem::create([
-                        'purchase_order_id' => $purchaseOrder->id,
-                        'product_id' => $item['product_id'],
-                        'quantity' => $quantity,
-                        'unit_price' => $unitPrice,
-                        'discount' => $discount,
-                        'cgst' => $cgst,
-                        'sgst' => $sgst,
-                        'igst' => $igst,
-                        'total_price' => $totalPrice,
-                    ]);
-                }
-            });
-
-            return response()->json(['success' => true, 'message' => 'Purchase order created.']);
-        } catch (\Exception $e) {
-            \Log::error('Error creating purchase order: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Failed to create purchase order.'], 500);
-        }
+        return response()->json(['success' => true, 'message' => 'Purchase order created successfully.']);
+    } catch (\Exception $e) {
+        \Log::error('Error creating purchase order: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to create purchase order.'], 500);
     }
+}
 
 
     public function getLastPurchasePrice(Request $request)

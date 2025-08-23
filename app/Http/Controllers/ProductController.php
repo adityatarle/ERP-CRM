@@ -12,34 +12,34 @@ use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
-   public function index(Request $request)
-{
-    // Get the search query and category filter from the request
-    $search = $request->query('search');
-    $category = $request->query('category');
+    public function index(Request $request)
+    {
+        // Get the search query and category filter from the request
+        $search = $request->query('search');
+        $category = $request->query('category');
 
-    // Build the query
-    $query = Product::query();
+        // Build the query
+        $query = Product::query();
 
-    // If a search term is provided, filter products by name
-    if ($search) {
-        $query->where('name', 'like', '%' . $search . '%');
+        // If a search term is provided, filter products by name
+        if ($search) {
+            $query->where('name', 'like', '%' . $search . '%');
+        }
+
+        // If a category is selected, filter products by category
+        if ($category) {
+            $query->where('category', $category);
+        }
+
+        // Get the filtered products
+        $products = $query->get();
+
+        // Get all unique categories for the dropdown
+        $categories = Product::distinct()->pluck('category')->sort();
+
+        // Pass the products, search term, categories, and selected category to the view
+        return view('products.index', compact('products', 'search', 'categories', 'category'));
     }
-
-    // If a category is selected, filter products by category
-    if ($category) {
-        $query->where('category', $category);
-    }
-
-    // Get the filtered products
-    $products = $query->get();
-
-    // Get all unique categories for the dropdown
-    $categories = Product::distinct()->pluck('category')->sort();
-
-    // Pass the products, search term, categories, and selected category to the view
-    return view('products.index', compact('products', 'search', 'categories', 'category'));
-}
 
     public function create()
     {
@@ -79,7 +79,7 @@ class ProductController extends Controller
                 ],
             ], 200);
         }
-        
+
         // This handles standard form submissions
         return redirect()->route('products.index')->with('success', 'Product added successfully.');
     }
@@ -99,18 +99,22 @@ class ProductController extends Controller
         return view('products.edit', compact('product'));
     }
 
+    // In app/Http/Controllers/ProductController.php
+
     public function update(Request $request, Product $product)
     {
+        // THE FIX: Changed 'pstock' and 'qty' from 'required' to 'nullable'.
+        // Also ensuring the 'name' validation allows the current product's name.
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:products,name,' . $product->id,
             'category' => 'required|string|max:255',
             'subcategory' => 'nullable|string|max:255',
             'price' => 'nullable|numeric|min:0',
             'hsn' => 'nullable|string|max:8',
-            'item_code' => 'nullable|string|max:8',
+            'item_code' => 'nullable|string|max:255', // Corrected max length
             'stock' => 'nullable|integer|min:0',
-            'pstock' => 'required|integer|min:0',
-            'qty' => 'required|integer|min:0',
+            'pstock' => 'nullable|integer|min:0',    // <-- CHANGED FROM 'required'
+            'qty' => 'nullable|integer|min:0',       // <-- CHANGED FROM 'required'
         ]);
 
         $product->update($validated);

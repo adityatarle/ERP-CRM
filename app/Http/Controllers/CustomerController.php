@@ -7,6 +7,9 @@ use App\Imports\CustomersImport;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CustomerLedgerExport; // Add this
+use App\Mail\CustomerLedgerEmail;   // Add this
+use Illuminate\Support\Facades\Mail;   // Add this
 
 class CustomerController extends Controller
 {
@@ -115,4 +118,32 @@ class CustomerController extends Controller
             return redirect()->route('customers.index')->with('error', 'Error importing customers: ' . $e->getMessage());
         }
     }
+
+
+
+    public function exportLedger(Customer $customer)
+    {
+        $fileName = 'Ledger-' . $customer->name . '-' . now()->format('Y-m-d') . '.xlsx';
+        return Excel::download(new CustomerLedgerExport($customer), $fileName);
+    }
+
+    public function emailLedger(Customer $customer)
+    {
+        if (empty($customer->email)) {
+            return redirect()->back()->with('error', 'This customer does not have an email address on file.');
+        }
+
+        try {
+            Mail::to($customer->email)->send(new CustomerLedgerEmail($customer));
+            return redirect()->route('customers.show', $customer->id)
+                   ->with('success', 'Ledger has been successfully emailed to ' . $customer->email);
+        } catch (\Exception $e) {
+            \Log::error('Failed to email ledger for customer ' . $customer->id . ': ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to send email. Please check mail configuration.');
+        }
+    }
+
+
+
+
 }

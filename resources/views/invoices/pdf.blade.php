@@ -172,7 +172,7 @@
         @php
         // Define how many items fit on the first page and subsequent pages
         $itemsOnFirstPage = 10;
-        $itemsOnNextPages = 15; // Adjust this based on your layout
+        $itemsOnNextPages = 11; // Adjust this based on your layout
         $totalItems = count($allItems);
         $itemsPrinted = 0;
         @endphp
@@ -201,8 +201,8 @@
                         <td>{{ $itemsPrinted + 1 }}</td>
                         <td class="description">
                             <b>{{ $item->product->name }}</b><br>
-                            <small>Material Code-{{ $item->itemcode ?? 'N/A' }}</small><br>
-                            <small>Line No-{{ $item->secondary_itemcode ?? 'N/A' }}</small>
+                            <small>{{ $item->itemcode ?? 'N/A' }} |</small>
+                            <small>{{ $item->secondary_itemcode ?? 'N/A' }}</small>
                         </td>
                         <td>{{ $item->product->hsn }}</td>
                         <td>{{ $item->quantity }}</td>
@@ -253,8 +253,8 @@
                         <td>{{ $itemsPrinted + 1 }}</td>
                         <td class="description">
                             <b>{{ $item->product->name }}</b><br>
-                            <small>Material Code-{{ $item->itemcode ?? 'N/A' }}</small><br>
-                            <small>Line No-{{ $item->secondary_itemcode ?? 'N/A' }}</small>
+                            <small>{{ $item->itemcode ?? 'N/A' }} |</small>
+                            <small>{{ $item->secondary_itemcode ?? 'N/A' }}</small>
                         </td>
                         <td>{{ $item->product->hsn }}</td>
                         <td>{{ $item->quantity }}</td>

@@ -220,77 +220,73 @@
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
+<script>
+    $(document).ready(function() {
 
-            const productsList = $('#products-list');
-            const productsHeader = $('.products-header');
+        const productsList = $('#products-list');
+        const productsHeader = $('.products-header');
 
-            // Main event listener for the PO dropdown
-            $('#purchase_order_id').on('change', function() {
-                const poId = $(this).val();
-                if (!poId) return resetForm();
+        // Main event listener for the PO dropdown
+        $('#purchase_order_id').on('change', function() {
+            const poId = $(this).val();
+            if (!poId) return resetForm();
 
-                // Get the selected option data attributes
-                const selectedOption = $(this).find('option:selected');
-                const partyName = selectedOption.data('party-name');
-                const partyId = selectedOption.data('party-id');
-                const poNumber = selectedOption.data('po-number');
-                
-                productsList.html('<p class="text-muted text-center p-4">Loading...</p>');
+            const selectedOption = $(this).find('option:selected');
+            const partyName = selectedOption.data('party-name');
+            const partyId = selectedOption.data('party-id');
+            
+            productsList.html('<p class="text-muted text-center p-4">Loading...</p>');
 
-                // Pre-fill party information from option data attributes
-                if (partyName) {
-                    $('#party_name').val(partyName);
-                    $('#party_id').val(partyId);
-                }
+            if (partyName) {
+                $('#party_name').val(partyName);
+                $('#party_id').val(partyId);
+            }
 
-                $.ajax({
-                    url: `/purchase-orders/${poId}/details`,
-                    method: 'GET',
-                    success: function(po) {
-                        $('#party_name').val(po.party.name);
-                        $('#party_id').val(po.party.id);
-                        productsList.empty();
+            $.ajax({
+                url: `/purchase-orders/${poId}/details`,
+                method: 'GET',
+                success: function(po) {
+                    $('#party_name').val(po.party.name);
+                    $('#party_id').val(po.party.id);
+                    productsList.empty();
 
-                        if (po.items && po.items.length > 0) {
-                            productsHeader.css('display', 'grid');
-                            po.items.forEach((item, index) => addProductRow(item, index));
-                        } else {
-                            productsList.html('<p class="text-info text-center p-4">All items for this Purchase Order have been received.</p>');
-                            productsHeader.hide();
-                        }
-                        calculateTotals();
-                    },
-                    error: () => {
-                        productsList.html('<p class="text-danger text-center p-4">Could not load PO details.</p>');
-                        resetForm();
+                    // Assuming your backend sends 'items' with 'quantity_remaining'
+                    if (po.items && po.items.length > 0) {
+                        productsHeader.css('display', 'grid');
+                        po.items.forEach((item, index) => addProductRow(item, index));
+                    } else {
+                        productsList.html('<p class="text-info text-center p-4">All items for this Purchase Order have been received.</p>');
+                        productsHeader.hide();
                     }
-                });
+                    // This call will now work correctly
+                    calculateTotals();
+                },
+                error: () => {
+                    productsList.html('<p class="text-danger text-center p-4">Could not load PO details.</p>');
+                    resetForm();
+                }
             });
+        });
 
-            // Function to build and append a product row
-            function addProductRow(item, index) {
-                const product = item.product || {
-                    name: 'Unknown Product'
-                };
+        function addProductRow(item, index) {
+            const product = item.product || { name: 'Unknown Product' };
+            const remainingQty = item.quantity_remaining || 0;
 
-                // THE FIX: Use 'quantity_remaining' for the placeholder and max value
-                const remainingQty = item.quantity_remaining || 0;
+            if (remainingQty <= 0) return; // Don't add fully received items
 
-                const rowHtml = `
+            const rowHtml = `
             <div class="product-item-row" id="row-${index}">
                 <input type="hidden" name="products[${index}][product_id]" value="${item.product_id}">
                 <div class="fw-bold d-flex align-items-center">${product.name}</div>
                 <div>
-                    <input type="number" name="products[${index}][quantity]" class="form-control quantity-input" min="0" max="${remainingQty}" required placeholder="0">
+                    <input type="number" name="products[${index}][quantity]" class="form-control quantity-input" min="0" max="${remainingQty}" required value="0" placeholder="0">
                     <small class="text-muted">Remaining: ${remainingQty}</small>
                 </div>
-                <div><input type="number" name="products[${index}][unit_price]" value="${item.unit_price}" class="form-control unit-price" readonly></div>
-                <div><input type="number" name="products[${index}][discount]" value="${item.discount || 0}" class="form-control discount-input" readonly></div>
-                <div><input type="number" name="products[${index}][cgst_rate]" value="${item.cgst || 0}" class="form-control cgst-rate" readonly></div>
-                <div><input type="number" name="products[${index}][sgst_rate]" value="${item.sgst || 0}" class="form-control sgst-rate" readonly></div>
-                <div><input type="number" name="products[${index}][igst_rate]" value="${item.igst || 0}" class="form-control igst-rate" readonly></div>
+                <div><input type="number" step="0.01" name="products[${index}][unit_price]" value="${item.unit_price}" class="form-control unit-price" readonly></div>
+                <div><input type="number" step="0.01" name="products[${index}][discount]" value="${item.discount || 0}" class="form-control discount-input" readonly></div>
+                <div><input type="number" step="0.01" name="products[${index}][cgst_rate]" value="${item.cgst_rate || item.cgst || 0}" class="form-control cgst-rate" readonly></div>
+                <div><input type="number" step="0.01" name="products[${index}][sgst_rate]" value="${item.sgst_rate || item.sgst || 0}" class="form-control sgst-rate" readonly></div>
+                <div><input type="number" step="0.01" name="products[${index}][igst_rate]" value="${item.igst_rate || item.igst || 0}" class="form-control igst-rate" readonly></div>
                 <div>
                     <select name="products[${index}][status]" class="form-select status-select">
                         <option value="received" selected>Received</option>
@@ -301,52 +297,85 @@
                     <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" title="Remove from this entry"><i class="fa fa-trash"></i></button>
                 </div>
             </div>`;
-                productsList.append(rowHtml);
-            }
+            productsList.append(rowHtml);
+        }
 
-            // Remove a product row
-            productsList.on('click', '.remove-item-btn', function() {
-                $(this).closest('.product-item-row').remove();
-                if (productsList.children().length === 0) {
-                    productsList.html('<p class="text-muted text-center p-4 border rounded">All items removed. You can re-select the PO to add them back.</p>');
-                    productsHeader.hide();
-                }
-                calculateTotals();
-            });
-
-            // Add validation to quantity input
-            productsList.on('input', '.quantity-input', function() {
-                const $input = $(this);
-                const maxQty = parseFloat($input.attr('max'));
-                const currentQty = parseFloat($input.val());
-
-                if (currentQty > maxQty) {
-                    $input.val(maxQty); // Correct the value automatically
-                    // Optionally show a small, temporary warning
-                    const $warning = $('<small class="text-danger d-block mt-1">Max qty exceeded.</small>');
-                    $input.parent().append($warning);
-                    setTimeout(() => $warning.remove(), 2000);
-                }
-                calculateTotals();
-            });
-
-            function resetForm() {
-                $('#party_name').val('');
-                $('#party_id').val('');
-                productsList.html('<p class="text-muted text-center p-4 border rounded">Select a Purchase Order to load products.</p>');
+        productsList.on('click', '.remove-item-btn', function() {
+            $(this).closest('.product-item-row').remove();
+            if (productsList.children().length === 0) {
+                productsList.html('<p class="text-muted text-center p-4 border rounded">All items removed. You can re-select the PO to add them back.</p>');
                 productsHeader.hide();
-                calculateTotals();
             }
-
-            function calculateTotals() {
-                // ... (This function remains unchanged) ...
-            }
-
-            // Trigger change event if a PO was selected on a previous (failed) attempt
-            if ($('#purchase_order_id').val()) {
-                $('#purchase_order_id').trigger('change');
-            }
+            calculateTotals();
         });
-    </script>
+
+        productsList.on('input', '.quantity-input', function() {
+            const $input = $(this);
+            const maxQty = parseFloat($input.attr('max'));
+            const currentQty = parseFloat($input.val());
+
+            if (currentQty > maxQty) {
+                $input.val(maxQty);
+                $input.parent().find('.text-danger').remove();
+                const $warning = $('<small class="text-danger d-block mt-1">Max qty exceeded.</small>');
+                $input.parent().append($warning);
+                setTimeout(() => $warning.remove(), 2000);
+            }
+            calculateTotals();
+        });
+
+        function resetForm() {
+            $('#party_name').val('');
+            $('#party_id').val('');
+            productsList.html('<p class="text-muted text-center p-4 border rounded">Select a Purchase Order to load products.</p>');
+            productsHeader.hide();
+            calculateTotals();
+        }
+
+        // ==========================================================
+        // == THIS IS THE CORRECTED, WORKING FUNCTION              ==
+        // ==========================================================
+        function calculateTotals() {
+            let totalSubtotal = 0;
+            let totalDiscount = 0;
+            let totalTax = 0;
+
+            $('.product-item-row').each(function() {
+                const $row = $(this);
+                const quantity = parseFloat($row.find('.quantity-input').val()) || 0;
+                const unitPrice = parseFloat($row.find('.unit-price').val()) || 0;
+                const discountRate = parseFloat($row.find('.discount-input').val()) || 0;
+                const cgstRate = parseFloat($row.find('.cgst-rate').val()) || 0;
+                const sgstRate = parseFloat($row.find('.sgst-rate').val()) || 0;
+                const igstRate = parseFloat($row.find('.igst-rate').val()) || 0;
+
+                if (quantity === 0) {
+                    return;
+                }
+
+                const itemSubtotal = quantity * unitPrice;
+                const itemDiscountAmount = itemSubtotal * (discountRate / 100);
+                const taxableAmount = itemSubtotal - itemDiscountAmount;
+                const itemTaxAmount = taxableAmount * ((cgstRate + sgstRate + igstRate) / 100);
+
+                totalSubtotal += itemSubtotal;
+                totalDiscount += itemDiscountAmount;
+                totalTax += itemTaxAmount;
+            });
+
+            const grandTotal = (totalSubtotal - totalDiscount) + totalTax;
+            const formatCurrency = (amount) => `₹${amount.toFixed(2)}`;
+
+            $('#subtotal').text(formatCurrency(totalSubtotal));
+            $('#total_discount').text(formatCurrency(totalDiscount));
+            $('#total_tax').text(formatCurrency(totalTax));
+            $('#grand_total').text(formatCurrency(grandTotal));
+        }
+
+        if ($('#purchase_order_id').val()) {
+            $('#purchase_order_id').trigger('change');
+        }
+    });
+</script>
 </body>
 @include('layout.footer')

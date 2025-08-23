@@ -2,45 +2,75 @@
 
 <style>
     /* Page & Card Styling */
-    body { background-color: #f4f7f9; }
-    .main-content-area { min-height: 100vh; }
-    .card-header h1 { font-size: 1.25rem; font-weight: 600; }
-    .table thead th {
-        background-color: #e9ecef; font-weight: 600;
-        color: #495057; white-space: nowrap; padding: 0.75rem 1rem;
+    body {
+        background-color: #f4f7f9;
     }
-    .table td { vertical-align: middle; padding: 0.75rem 1rem; }
+
+    .main-content-area {
+        min-height: 100vh;
+    }
+
+    .card-header h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .table thead th {
+        background-color: #e9ecef;
+        font-weight: 600;
+        color: #495057;
+        white-space: nowrap;
+        padding: 0.75rem 1rem;
+    }
+
+    .table td {
+        vertical-align: middle;
+        padding: 0.75rem 1rem;
+    }
+
     .filter-section {
-        background-color: #f8f9fa; border: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
         border-radius: .375rem;
     }
+
     .status-badge {
-        padding: 0.4em 0.7em; font-size: 0.8rem;
-        font-weight: 500; border-radius: 50rem;
+        padding: 0.4em 0.7em;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border-radius: 50rem;
     }
-    .status-paid { background-color: rgba(25, 135, 84, 0.1); color: #0f5132; }
-    .status-pending { background-color: rgba(255, 193, 7, 0.1); color: #664d03; }
+
+    .status-paid {
+        background-color: rgba(25, 135, 84, 0.1);
+        color: #0f5132;
+    }
+
+    .status-pending {
+        background-color: rgba(255, 193, 7, 0.1);
+        color: #664d03;
+    }
 </style>
 
 <body class="act-payments">
     <div class="main-content-area">
         <div class="container p-3 p-md-4 mx-auto">
             @if (session('success'))
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    {{ session('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
             @endif
             @if ($errors->any())
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    Please correct the following errors:
-                    <ul>
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                Please correct the following errors:
+                <ul>
+                    @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
             @endif
 
             <div class="card shadow-sm w-100 border-0">
@@ -113,34 +143,34 @@
                             </thead>
                             <tbody>
                                 @forelse($payables as $payable)
-                                    <tr>
-                                        {{-- THE ONLY CHANGE IS HERE --}}
-                                        <td class="ps-3 fw-bold text-primary">
-                                            @if($payable->purchaseEntry)
-                                                <a href="{{ route('purchase_entries.show', $payable->purchaseEntry->id) }}" title="View Purchase Entry Details">
-                                                    {{ $payable->purchaseEntry->purchase_number }}
-                                                </a>
-                                            @else
-                                                N/A
-                                            @endif
-                                        </td>
-                                        <td>{{ $payable->party->name ?? 'N/A' }}</td>
-                                        <td>{{ $payable->purchaseEntry ? \Carbon\Carbon::parse($payable->purchaseEntry->purchase_date)->format('d M, Y') : 'N/A' }}</td>
-                                        <td>{{ $payable->invoice_number ?? '-' }}</td>
-                                        <td>{{ $payable->invoice_date ? \Carbon\Carbon::parse($payable->invoice_date)->format('d M, Y') : '-' }}</td>
-                                        <td class="text-end">₹{{ number_format($payable->amount, 2) }}</td>
-                                        <td class="text-center">
-                                            @if($payable->is_paid)
-                                                <span class="status-badge status-paid">Paid</span>
-                                            @else
-                                                <span class="status-badge status-pending">Pending</span>
-                                            @endif
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    {{-- THE ONLY CHANGE IS HERE --}}
+                                    <td class="ps-3 fw-bold text-primary">
+                                        @if($payable->purchaseEntry)
+                                        <a href="{{ route('purchase_entries.show', $payable->purchaseEntry->id) }}" title="View Purchase Entry Details">
+                                            {{ $payable->purchaseEntry->purchase_number }}
+                                        </a>
+                                        @else
+                                        N/A
+                                        @endif
+                                    </td>
+                                    <td>{{ $payable->party->name ?? 'N/A' }}</td>
+                                    <td>{{ $payable->purchaseEntry ? \Carbon\Carbon::parse($payable->purchaseEntry->purchase_date)->format('d M, Y') : 'N/A' }}</td>
+                                    <td>{{ $payable->invoice_number ?? '-' }}</td>
+                                    <td>{{ $payable->invoice_date ? \Carbon\Carbon::parse($payable->invoice_date)->format('d M, Y') : '-' }}</td>
+                                    <td class="text-end">₹{{ number_format($payable->amount, 2) }}</td>
+                                    <td class="text-center">
+                                        @if($payable->is_paid)
+                                        <span class="status-badge status-paid">Paid</span>
+                                        @else
+                                        <span class="status-badge status-pending">Pending</span>
+                                        @endif
+                                    </td>
+                                </tr>
                                 @empty
-                                    <tr>
-                                        <td colspan="7" class="text-center p-4">No payables found.</td>
-                                    </tr>
+                                <tr>
+                                    <td colspan="7" class="text-center p-4">No payables found.</td>
+                                </tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -148,9 +178,9 @@
                 </div>
 
                 @if ($payables->hasPages())
-                    <div class="card-footer bg-light border-top">
-                        {{ $payables->appends(request()->query())->links() }}
-                    </div>
+                <div class="card-footer bg-light border-top">
+                    {{ $payables->appends(request()->query())->links() }}
+                </div>
                 @endif
             </div>
         </div>
@@ -175,7 +205,7 @@
                             </div>
                             <small class="text-muted" id="amount-to-be-paid"></small>
                             @error('amount')
-                                <div class="text-danger">{{ $message }}</div>
+                            <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="mb-3">
@@ -183,42 +213,43 @@
                             <select name="party_id" id="modal_party_id" class="form-select" required onchange="fetchPurchaseEntries()">
                                 <option value="">Select a Party</option>
                                 @foreach($parties as $party)
-                                    <option value="{{ $party->id }}">{{ $party->name }}</option>
+                                <option value="{{ $party->id }}">{{ $party->name }}</option>
                                 @endforeach
                             </select>
                             @error('party_id')
-                                <div class="text-danger">{{ $message }}</div>
+                            <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="mb-3">
-                            <label for="purchase-entries-list" class="form-label">Unpaid Purchase Entries</label>
-                            <div id="purchase-entries-list">
-                                <p class="text-muted">Select a party to view unpaid purchase entries.</p>
+                            <label for="purchase-entries-list" class="form-label fw-bold">Unpaid Purchase Entries</label>
+
+                            <div class="mb-2">
+                                <input type="text" id="payable_search_input" class="form-control form-control-sm"
+                                    placeholder="Search by Purchase #"
+                                    oninput="filterPayableEntries()">
                             </div>
+
+                            <div id="purchase-entries-list" class="border rounded p-2" style="max-height: 250px; overflow-y: auto; background-color: #f8f9fa;">
+                                <p class="text-muted p-2">Select a party to view unpaid purchase entries.</p>
+                            </div>
+
                             <input type="hidden" name="purchase_entry_ids" id="purchase_entry_ids" value="[]">
                             @error('purchase_entry_ids')
-                                <div class="text-danger">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="mb-3">
-                            <label for="invoice_number" class="form-label">Invoice Number</label>
-                            <input type="text" name="invoice_number" id="invoice_number" class="form-control" placeholder="Enter invoice number">
-                            @error('invoice_number')
-                                <div class="text-danger">{{ $message }}</div>
+                            <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="mb-3">
                             <label for="invoice_date" class="form-label">Invoice Date</label>
                             <input type="date" name="invoice_date" id="invoice_date" class="form-control">
                             @error('invoice_date')
-                                <div class="text-danger">{{ $message }}</div>
+                            <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="mb-3">
                             <label for="payment_date" class="form-label">Payment Date</label>
                             <input type="date" name="payment_date" id="payment_date" class="form-control" required value="{{ \Carbon\Carbon::today()->toDateString() }}">
                             @error('payment_date')
-                                <div class="text-danger">{{ $message }}</div>
+                            <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="mb-3">
@@ -230,14 +261,14 @@
                                 <option value="Union Bank">Union Bank</option>
                             </select>
                             @error('bank_name')
-                                <div class="text-danger">{{ $message }}</div>
+                            <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea name="notes" id="notes" class="form-control"></textarea>
                             @error('notes')
-                                <div class="text-danger">{{ $message }}</div>
+                            <div class="text-danger">{{ $message }}</div>
                             @enderror
                         </div>
                         <div class="modal-footer">
@@ -252,182 +283,221 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Global variables to hold the state within the modal
         let purchaseEntriesData = [];
         let enteredAmount = 0;
 
+        /**
+         * Resets the form when the main "Amount" is changed.
+         */
         window.validateAmount = function() {
             enteredAmount = parseFloat(document.getElementById('amount').value) || 0;
             const amountToBePaidSpan = document.getElementById('amount-to-be-paid');
             const purchaseEntriesList = document.getElementById('purchase-entries-list');
-            const submitButton = document.getElementById('submit-payment-btn');
             const partyDropdown = document.getElementById('modal_party_id');
-            const hiddenInput = document.getElementById('purchase_entry_ids');
-
-            purchaseEntriesList.innerHTML = '<p class="text-muted">Select a party to view unpaid purchase entries.</p>';
-            partyDropdown.value = '';
-            hiddenInput.value = '[]';
-            submitButton.disabled = true;
-
-            if (enteredAmount <= 0) {
-                amountToBePaidSpan.textContent = 'Please enter a valid amount greater than 0.';
-            } else {
-                amountToBePaidSpan.textContent = `Entered Amount: ₹${enteredAmount.toFixed(2)}`;
+            
+            // Clear the search input if it exists
+            const searchInput = document.getElementById('payable_search_input');
+            if (searchInput) {
+                searchInput.value = '';
             }
+
+            // Reset the form to its initial state
+            purchaseEntriesList.innerHTML = '<p class="text-muted p-2">Select a party to view unpaid purchase entries.</p>';
+            partyDropdown.value = '';
+            document.getElementById('purchase_entry_ids').value = '[]';
+            document.getElementById('submit-payment-btn').disabled = true;
+
+            amountToBePaidSpan.textContent = enteredAmount > 0 ? `Entered Amount: ₹${enteredAmount.toFixed(2)}` : 'Please enter a valid amount greater than 0.';
         }
 
+        /**
+         * Fetches unpaid entries for the selected party and orchestrates the UI build.
+         */
         window.fetchPurchaseEntries = function() {
             const partyId = document.getElementById('modal_party_id').value;
             const purchaseEntriesList = document.getElementById('purchase-entries-list');
-            const amountToBePaidSpan = document.getElementById('amount-to-be-paid');
-            const submitButton = document.getElementById('submit-payment-btn');
-            const hiddenInput = document.getElementById('purchase_entry_ids');
+            
+            // Clear search on new party selection
+            const searchInput = document.getElementById('payable_search_input');
+            if (searchInput) {
+                searchInput.value = '';
+            }
 
-            purchaseEntriesList.innerHTML = '<p class="text-muted">Loading...</p>';
-            amountToBePaidSpan.textContent = enteredAmount > 0 ? `Entered Amount: ₹${enteredAmount.toFixed(2)}` : 'Please enter a valid amount.';
-            hiddenInput.value = '[]';
+            purchaseEntriesList.innerHTML = '<p class="text-muted p-2">Loading...</p>';
+            document.getElementById('submit-payment-btn').disabled = true;
             purchaseEntriesData = [];
-            submitButton.disabled = true;
 
             if (!partyId || enteredAmount <= 0) {
-                purchaseEntriesList.innerHTML = '<p class="text-muted">Please enter an amount and select a party.</p>';
+                purchaseEntriesList.innerHTML = '<p class="text-muted p-2">Please enter an amount and select a party.</p>';
                 return;
             }
 
             fetch(`{{ route("payables.getPurchaseEntriesByParty") }}?party_id=${partyId}`, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             })
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to fetch purchase entries');
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 purchaseEntriesData = data;
-                purchaseEntriesList.innerHTML = '';
-                hiddenInput.value = '[]';
-
+                
                 if (data.length === 0) {
-                    purchaseEntriesList.innerHTML = '<p class="text-muted">No unpaid purchase entries found.</p>';
-                    submitButton.disabled = true;
-                    amountToBePaidSpan.textContent = `Entered Amount: ₹${enteredAmount.toFixed(2)}`;
+                    purchaseEntriesList.innerHTML = '<p class="text-muted fw-bold p-2">No unpaid purchase entries found for this party.</p>';
+                    updateSelectedEntries(); // Allow payment on account by updating totals
                     return;
                 }
 
-                let remainingAmount = enteredAmount;
-                let totalOutstanding = data.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-                const selectedEntries = [];
-
-                // Create table for purchase entries with checkboxes
-                const table = document.createElement('table');
-                table.className = 'table table-sm table-bordered';
-                table.innerHTML = `
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="select-all-entries" onchange="toggleSelectAll()"></th>
-                            <th>Purchase #</th>
-                            <th>Date</th>
-                            <th>Outstanding</th>
-                            <th>Payment</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                `;
-                const tbody = table.querySelector('tbody');
-
-                data.forEach(entry => {
-                    let paymentAmount = Math.min(remainingAmount, parseFloat(entry.amount));
-                    remainingAmount -= paymentAmount;
-                    selectedEntries.push({ id: entry.id, amount: paymentAmount });
-
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td><input type="checkbox" class="entry-checkbox" data-id="${entry.id}" data-amount="${parseFloat(entry.amount).toFixed(2)}" checked onchange="updateSelectedEntries()"></td>
-                        <td>${entry.purchase_number ?? `Purchase #${entry.id}`}</td>
-                        <td>${entry.purchase_date ? new Date(entry.purchase_date).toLocaleDateString() : 'N/A'}</td>
-                        <td>₹${parseFloat(entry.amount).toFixed(2)}</td>
-                        <td><input type="number" class="form-control form-control-sm payment-amount" data-id="${entry.id}" step="0.01" min="0" value="${paymentAmount.toFixed(2)}" onchange="updateSelectedEntries()"></td>
-                    `;
-                    tbody.appendChild(row);
-                });
-
-                purchaseEntriesList.appendChild(table);
-                try {
-                    hiddenInput.value = JSON.stringify(selectedEntries);
-                } catch (e) {
-                    console.error('Error stringifying selected entries:', e);
-                    purchaseEntriesList.innerHTML = '<p class="text-danger">Error processing entries.</p>';
-                    submitButton.disabled = true;
-                    return;
-                }
-
-                amountToBePaidSpan.textContent = `Total Outstanding: ₹${totalOutstanding.toFixed(2)}. Allocated: ₹${(enteredAmount - remainingAmount).toFixed(2)}. Remaining: ₹${remainingAmount.toFixed(2)}.`;
-                submitButton.disabled = selectedEntries.length === 0 || remainingAmount < 0;
+                // --- This is the correct, robust sequence ---
+                // 1. Build the HTML table structure.
+                buildPayableEntriesTable(data);
+                // 2. Perform the one-time initial auto-allocation of the entered amount.
+                autoAllocatePayment();
+                // 3. Update the summary text and button state based on the initial allocation.
+                updateSelectedEntries();
             })
             .catch(error => {
                 console.error('Error fetching purchase entries:', error);
-                purchaseEntriesList.innerHTML = '<p class="text-danger">Error loading entries.</p>';
-                submitButton.disabled = true;
+                purchaseEntriesList.innerHTML = '<p class="text-danger p-2">Error loading entries.</p>';
             });
         }
 
+        /**
+         * Builds the HTML table structure for the unpaid entries.
+         * It adds the 'purchase-entry-row' class for the search filter.
+         */
+        function buildPayableEntriesTable(data) {
+            const purchaseEntriesList = document.getElementById('purchase-entries-list');
+            purchaseEntriesList.innerHTML = '';
+            const table = document.createElement('table');
+            table.className = 'table table-sm table-bordered';
+            table.innerHTML = `
+                <thead class="table-light">
+                    <tr>
+                        <th><input type="checkbox" id="select-all-entries" onchange="toggleSelectAll()"></th>
+                        <th>Purchase #</th>
+                        <th>Date</th>
+                        <th class="text-end">Outstanding</th>
+                        <th class="text-end">Payment</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            const tbody = table.querySelector('tbody');
+
+            data.forEach(entry => {
+                const row = document.createElement('tr');
+                row.className = 'purchase-entry-row'; // The hook for the search filter
+                row.innerHTML = `
+                    <td><input type="checkbox" class="entry-checkbox" data-id="${entry.id}" data-amount="${parseFloat(entry.amount).toFixed(2)}" onchange="updateSelectedEntries()"></td>
+                    <td>${entry.purchase_number ?? 'N/A'}</td>
+                    <td>${entry.purchase_date ? new Date(entry.purchase_date).toLocaleDateString('en-GB') : 'N/A'}</td>
+                    <td class="text-end">₹${parseFloat(entry.amount).toFixed(2)}</td>
+                    <td><input type="number" class="form-control form-control-sm payment-amount text-end" data-id="${entry.id}" step="0.01" min="0" value="0.00" oninput="updateSelectedEntries()"></td>
+                `;
+                tbody.appendChild(row);
+            });
+            purchaseEntriesList.appendChild(table);
+        }
+
+        /**
+         * Performs the initial, one-time auto-allocation of the payment amount
+         * across the unpaid entries after they have been loaded.
+         */
+        function autoAllocatePayment() {
+            let amountToAllocate = enteredAmount;
+            document.querySelectorAll('.purchase-entry-row').forEach(row => {
+                if (amountToAllocate <= 0) return;
+
+                const checkbox = row.querySelector('.entry-checkbox');
+                const paymentInput = row.querySelector('.payment-amount');
+                const outstanding = parseFloat(checkbox.dataset.amount);
+
+                const paymentAmount = Math.min(outstanding, amountToAllocate);
+                
+                if (paymentAmount > 0) {
+                    checkbox.checked = true;
+                    paymentInput.value = paymentAmount.toFixed(2);
+                    amountToAllocate -= paymentAmount;
+                }
+            });
+        }
+
+        /**
+         * Filters the list of purchase entries based on the search input.
+         * This function is now completely independent of the payment logic.
+         */
+        window.filterPayableEntries = function() {
+            const searchTerm = document.getElementById('payable_search_input').value.toLowerCase();
+            document.querySelectorAll('.purchase-entry-row').forEach(row => {
+                const purchaseNumberCell = row.cells[1]; // The cell with the Purchase #
+                if (purchaseNumberCell) {
+                    const purchaseNumber = purchaseNumberCell.textContent.toLowerCase();
+                    row.style.display = purchaseNumber.includes(searchTerm) ? '' : 'none';
+                }
+            });
+        }
+
+        /**
+         * Toggles all *visible* checkboxes.
+         */
         window.toggleSelectAll = function() {
             const selectAllCheckbox = document.getElementById('select-all-entries');
-            const checkboxes = document.querySelectorAll('.entry-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
-                const paymentInput = checkbox.closest('tr').querySelector('.payment-amount');
-                paymentInput.disabled = !checkbox.checked;
-                if (!checkbox.checked) paymentInput.value = '0';
+            document.querySelectorAll('.entry-checkbox').forEach(checkbox => {
+                // Only affect rows that are not hidden by the filter
+                if(checkbox.closest('tr').style.display !== 'none') {
+                    checkbox.checked = selectAllCheckbox.checked;
+                }
             });
             updateSelectedEntries();
         }
 
+        /**
+         * Recalculates all totals based on the current state of checkboxes and inputs.
+         * This is called on any interaction (checkbox change, payment input change).
+         */
         window.updateSelectedEntries = function() {
-            const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
             const hiddenInput = document.getElementById('purchase_entry_ids');
             const amountToBePaidSpan = document.getElementById('amount-to-be-paid');
             const submitButton = document.getElementById('submit-payment-btn');
 
-            let remainingAmount = enteredAmount;
             let totalAllocated = 0;
             const selectedEntries = [];
 
-            checkboxes.forEach(checkbox => {
-                const entryId = checkbox.getAttribute('data-id');
-                const outstandingAmount = parseFloat(checkbox.getAttribute('data-amount'));
+            // Loop through all checkboxes to see which are checked
+            document.querySelectorAll('.entry-checkbox').forEach(checkbox => {
                 const paymentInput = checkbox.closest('tr').querySelector('.payment-amount');
-                let paymentAmount = parseFloat(paymentInput.value) || 0;
-
-                paymentAmount = Math.min(paymentAmount, outstandingAmount, remainingAmount);
-                paymentInput.value = paymentAmount.toFixed(2);
-                remainingAmount -= paymentAmount;
-                totalAllocated += paymentAmount;
-
-                if (paymentAmount > 0) {
-                    selectedEntries.push({ id: entryId, amount: paymentAmount });
+                if (checkbox.checked) {
+                    const paymentAmount = parseFloat(paymentInput.value) || 0;
+                    totalAllocated += paymentAmount;
+                    if (paymentAmount > 0) {
+                        selectedEntries.push({ id: checkbox.dataset.id, amount: paymentAmount });
+                    }
+                } else {
+                     // If a user unchecks a box, reset its payment amount to zero
+                     if (document.activeElement !== paymentInput) {
+                        paymentInput.value = '0.00';
+                     }
                 }
             });
 
-            try {
-                hiddenInput.value = JSON.stringify(selectedEntries);
-            } catch (e) {
-                console.error('Error stringifying selected entries:', e);
-                amountToBePaidSpan.textContent = 'Error processing entries.';
-                submitButton.disabled = true;
-                return;
-            }
+            hiddenInput.value = JSON.stringify(selectedEntries);
+            const balance = enteredAmount - totalAllocated;
 
-            amountToBePaidSpan.textContent = `Total Outstanding: ₹${purchaseEntriesData.reduce((sum, entry) => sum + parseFloat(entry.amount), 0).toFixed(2)}. Allocated: ₹${totalAllocated.toFixed(2)}. Remaining: ₹${remainingAmount.toFixed(2)}.`;
-            submitButton.disabled = totalAllocated <= 0 || (totalAllocated > enteredAmount);
+            amountToBePaidSpan.innerHTML = `Entered: <b class="text-dark">₹${enteredAmount.toFixed(2)}</b> | Allocated: <b class="text-primary">₹${totalAllocated.toFixed(2)}</b> | Balance: <b class="${Math.abs(balance) > 0.01 ? 'text-danger' : 'text-success'}">₹${balance.toFixed(2)}</b>`;
+            
+            // Enable button if amount is entered AND (it's fully allocated OR there are no entries to allocate against)
+            const isFullyAllocated = Math.abs(balance) < 0.01;
+            const canPayOnAccount = purchaseEntriesData.length === 0 && enteredAmount > 0;
+            submitButton.disabled = !(isFullyAllocated || canPayOnAccount);
         }
 
         window.exportToExcel = function() {
+            // Your existing export logic remains unchanged
             const startDate = document.getElementById('start_date').value;
             const endDate = document.getElementById('end_date').value;
             const partySearch = document.getElementById('party_search').value;
             const invoiceSearch = document.getElementById('invoice_search').value;
             const invoiceDateFrom = document.getElementById('invoice_date_from').value;
             const invoiceDateTo = document.getElementById('invoice_date_to').value;
-
             let exportUrl = `{{ route("payables.export") }}`;
             const params = new URLSearchParams();
             if (startDate) params.append('start_date', startDate);
@@ -436,19 +506,13 @@
             if (invoiceSearch) params.append('invoice_search', invoiceSearch);
             if (invoiceDateFrom) params.append('invoice_date_from', invoiceDateFrom);
             if (invoiceDateTo) params.append('invoice_date_to', invoiceDateTo);
-
-            if (!startDate && !endDate && !partySearch && !invoiceSearch && !invoiceDateFrom && !invoiceDateTo) {
+            if (!params.toString()) {
                 alert('Please provide at least one filter to export.');
                 return;
             }
-
-            if (params.toString()) {
-                exportUrl += `?${params.toString()}`;
-            }
-
-            window.location.href = exportUrl;
+            window.location.href = `${exportUrl}?${params.toString()}`;
         }
     });
-    </script>
+</script>
 </body>
 @include('layout.footer')

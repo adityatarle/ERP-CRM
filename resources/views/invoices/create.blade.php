@@ -6,30 +6,64 @@
 
 <style>
     /* Page & Form Styling */
-    body { background-color: #f4f7f9; }
-    .main-content-area { min-height: 100vh; }
-    .card-header h1 { font-size: 1.25rem; font-weight: 600; }
-    .form-label { font-weight: 500; color: #495057; margin-bottom: 0.5rem; }
-    .card.form-section { border: 1px solid #dee2e6; box-shadow: none; }
-    
-    /* Product Search & Suggestions */
-    .suggestions-container { position: relative; }
-    .product-suggestions, .customer-suggestions {
-        position: absolute; z-index: 1050; background-color: white;
-        border: 1px solid #ced4da; border-radius: 0 0 .375rem .375rem;
-        max-height: 250px; overflow-y: auto; width: 100%;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    body {
+        background-color: #f4f7f9;
     }
-    .product-suggestions .list-group-item:hover, .customer-suggestions .list-group-item:hover { background-color: #0d6efd; color: #fff; }
+
+    .main-content-area {
+        min-height: 100vh;
+    }
+
+    .card-header h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .card.form-section {
+        border: 1px solid #dee2e6;
+        box-shadow: none;
+    }
+
+    /* Product Search & Suggestions */
+    .suggestions-container {
+        position: relative;
+    }
+
+    .product-suggestions,
+    .customer-suggestions {
+        position: absolute;
+        z-index: 1050;
+        background-color: white;
+        border: 1px solid #ced4da;
+        border-radius: 0 0 .375rem .375rem;
+        max-height: 250px;
+        overflow-y: auto;
+        width: 100%;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-suggestions .list-group-item:hover,
+    .customer-suggestions .list-group-item:hover {
+        background-color: #0d6efd;
+        color: #fff;
+    }
 
     /* Selected Products Grid Layout */
-    .products-header, .product-item-row {
+    .products-header,
+    .product-item-row {
         display: grid;
         grid-template-columns: 3fr 1.25fr 1.75fr 1.5fr 2fr 0.75fr;
         gap: 1rem;
         align-items: start;
         padding: 0.75rem 1rem;
     }
+
     .products-header {
         background-color: #e9ecef;
         border-radius: .375rem;
@@ -38,27 +72,66 @@
         color: #495057;
         text-transform: uppercase;
     }
+
     .product-item-row {
         background-color: #fff;
         border: 1px solid #dee2e6;
         border-radius: .375rem;
         margin-bottom: 0.75rem;
     }
-    .stock-info { font-size: 0.8rem; color: #6c757d; }
-    .product-name-display { font-weight: 500; margin-bottom: 0.25rem; }
-    .remove-product-btn { justify-self: end; }
-    .validation-error { color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; }
+
+    .stock-info {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .product-name-display {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .remove-product-btn {
+        justify-self: end;
+    }
+
+    .validation-error {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+    }
 
     /* Totals Section */
-    .totals-card { background-color: #fff; border: 1px solid #dee2e6; border-radius: .375rem; padding: 1.5rem; }
-    .totals-card .row { font-size: 1.1rem; }
-    .totals-card .grand-total { font-size: 1.4rem; font-weight: bold; }
+    .totals-card {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        padding: 1.5rem;
+    }
+
+    .totals-card .row {
+        font-size: 1.1rem;
+    }
+
+    .totals-card .grand-total {
+        font-size: 1.4rem;
+        font-weight: bold;
+    }
 
     /* Responsive adjustments */
     @media (max-width: 992px) {
-        .products-header { display: none; }
-        .product-item-row { grid-template-columns: 1fr; padding: 1rem; }
-        .remove-product-btn { justify-self: start; margin-top: 1rem; }
+        .products-header {
+            display: none;
+        }
+
+        .product-item-row {
+            grid-template-columns: 1fr;
+            padding: 1rem;
+        }
+
+        .remove-product-btn {
+            justify-self: start;
+            margin-top: 1rem;
+        }
     }
 </style>
 
@@ -91,8 +164,10 @@
 
                         {{-- Product Selection --}}
                         <div class="card form-section p-3 mb-4">
-                             <div class="row g-3">
-                                <div class="col-md-9 suggestions-container"><label for="product-search" class="form-label">Search & Add Products</label><input type="text" id="product-search" class="form-control" placeholder="Type product name to search..."><div id="product-suggestions" class="list-group position-absolute w-100" style="z-index: 1000; display: none;"></div></div>
+                            <div class="row g-3">
+                                <div class="col-md-9 suggestions-container"><label for="product-search" class="form-label">Search & Add Products</label><input type="text" id="product-search" class="form-control" placeholder="Type product name to search...">
+                                    <div id="product-suggestions" class="list-group position-absolute w-100" style="z-index: 1000; display: none;"></div>
+                                </div>
                                 <div class="col-md-3 d-flex align-items-end"><button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#addProductModal"><i class="fa fa-plus"></i> Add New Product</button></div>
                             </div>
                         </div>
@@ -100,27 +175,58 @@
                         {{-- Selected Products List --}}
                         <div id="selected-products-container" class="mt-4">
                             <div class="products-header" style="display: none;"><!-- Initially hidden -->
-                                <div>Product</div><div>Quantity</div><div>Sale Price</div><div>Discount</div><div>Item Codes</div><div>Action</div>
+                                <div>Product</div>
+                                <div>Quantity</div>
+                                <div>Sale Price</div>
+                                <div>Discount</div>
+                                <div>Item Codes</div>
+                                <div>Action</div>
                             </div>
                             <div id="selected-products-list"></div>
                         </div>
-                        
+
                         {{-- Final Section: GST, Description, and Totals --}}
                         <div class="row mt-4 g-4">
                             <div class="col-lg-7">
                                 <div class="card form-section p-3 h-100">
                                     <div class="row g-3">
-                                        <div class="col-md-6"><label for="gst_type" class="form-label">GST Type</label><select name="gst_type" id="gst_type" class="form-select" required><option value="" disabled selected>Select GST Type</option><option value="CGST">CGST/SGST</option><option value="IGST">IGST</option></select></div>
+                                        <div class="col-md-6"><label for="gst_type" class="form-label">GST Type</label><select name="gst_type" id="gst_type" class="form-select" required>
+                                                <option value="" disabled selected>Select GST Type</option>
+                                                <option value="CGST">CGST/SGST</option>
+                                                <option value="IGST">IGST</option>
+                                            </select></div>
                                         <div class="col-md-6" id="gst-fields-container"></div>
                                         <div class="col-12"><label for="description" class="form-label">Description</label><textarea name="description" id="description" class="form-control" rows="3" placeholder="Add any additional notes or terms..."></textarea></div>
                                     </div>
                                 </div>
                             </div>
+                            {{-- Find this section and replace it --}}
+
                             <div class="col-lg-5">
                                 <div class="totals-card h-100">
-                                    <div class="row mb-2"><div class="col-7">Subtotal</div><div class="col-5 text-end" id="subtotal">₹0.00</div></div>
-                                    <div class="row mb-3"><div class="col-7">Total Tax (GST)</div><div class="col-5 text-end" id="total_tax">₹0.00</div></div>
-                                    <hr><div class="row grand-total"><div class="col-7 text-dark">Grand Total</div><div class="col-5 text-end text-primary" id="grand_total">₹0.00</div></div>
+                                    {{-- NEW DETAILED STRUCTURE --}}
+                                    <div class="row mb-2">
+                                        <div class="col-7 text-muted">Subtotal</div>
+                                        <div class="col-5 text-end" id="subtotal">₹0.00</div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-7 text-muted">Discount</div>
+                                        <div class="col-5 text-end text-success" id="total_discount">(-) ₹0.00</div>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="row mb-2 fw-bold">
+                                        <div class="col-7">Taxable Amount</div>
+                                        <div class="col-5 text-end" id="taxable_amount">₹0.00</div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-7 text-muted">GST</div>
+                                        <div class="col-5 text-end" id="total_tax">(+) ₹0.00</div>
+                                    </div>
+                                    <hr>
+                                    <div class="row grand-total">
+                                        <div class="col-7 text-dark">Grand Total</div>
+                                        <div class="col-5 text-end text-primary" id="grand_total">₹0.00</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -137,19 +243,43 @@
         <div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
-                    <div class="modal-header"><h5 class="modal-title" id="addProductModalLabel">Add New Product</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addProductModalLabel">Add New Product</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
                     <div class="modal-body">
                         <form id="add-product-form">
                             @csrf
-                            <div class="mb-3"><label for="name" class="form-label">Name</label><input type="text" name="name" id="name" class="form-control" required><div id="name-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="category" class="form-label">Category</label><select name="category" id="category" class="form-control" required><option value="">Select Category</option>@if(!empty($categories)) @foreach($categories as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach @endif</select><div id="category-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="subcategory" class="form-label">Sub-Category</label><select name="subcategory" id="subcategory" class="form-control"><option value="">Select Sub-Category</option>@if(!empty($subcategories)) @foreach($subcategories as $subcategory)<option value="{{ $subcategory }}">{{ $subcategory }}</option>@endforeach @endif</select><div id="subcategory-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="price" class="form-label">Price</label><input type="number" name="price" id="price" class="form-control" step="0.01" min="0" required><div id="price-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="hsn" class="form-label">HSN Code</label><input type="text" name="hsn" id="hsn" class="form-control"><div id="hsn-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="discount" class="form-label">Discount (%)</label><input type="number" name="discount" id="discount" class="form-control" step="0.01" min="0" max="100" required><div id="discount-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="stock" class="form-label">Tally Stock</label><input type="number" name="stock" id="stock" class="form-control" min="0" required><div id="stock-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="pstock" class="form-label">Physical Stock</label><input type="number" name="pstock" id="pstock" class="form-control" min="0" required><div id="pstock-error" class="text-danger"></div></div>
-                            <div class="mb-3"><label for="qty" class="form-label">Challan Qty</label><input type="number" name="qty" id="qty" class="form-control" min="0" required><div id="qty-error" class="text-danger"></div></div>
+                            <div class="mb-3"><label for="name" class="form-label">Name</label><input type="text" name="name" id="name" class="form-control" required>
+                                <div id="name-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="category" class="form-label">Category</label><select name="category" id="category" class="form-control" required>
+                                    <option value="">Select Category</option>@if(!empty($categories)) @foreach($categories as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach @endif
+                                </select>
+                                <div id="category-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="subcategory" class="form-label">Sub-Category</label><select name="subcategory" id="subcategory" class="form-control">
+                                    <option value="">Select Sub-Category</option>@if(!empty($subcategories)) @foreach($subcategories as $subcategory)<option value="{{ $subcategory }}">{{ $subcategory }}</option>@endforeach @endif
+                                </select>
+                                <div id="subcategory-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="price" class="form-label">Price</label><input type="number" name="price" id="price" class="form-control" step="0.01" min="0" required>
+                                <div id="price-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="hsn" class="form-label">HSN Code</label><input type="text" name="hsn" id="hsn" class="form-control">
+                                <div id="hsn-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="discount" class="form-label">Discount (%)</label><input type="number" name="discount" id="discount" class="form-control" step="0.01" min="0" max="100" required>
+                                <div id="discount-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="stock" class="form-label">Tally Stock</label><input type="number" name="stock" id="stock" class="form-control" min="0" required>
+                                <div id="stock-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="pstock" class="form-label">Physical Stock</label><input type="number" name="pstock" id="pstock" class="form-control" min="0" required>
+                                <div id="pstock-error" class="text-danger"></div>
+                            </div>
+                            <div class="mb-3"><label for="qty" class="form-label">Challan Qty</label><input type="number" name="qty" id="qty" class="form-control" min="0" required>
+                                <div id="qty-error" class="text-danger"></div>
+                            </div>
                             <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Save Product</button><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button></div>
                         </form>
                     </div>
@@ -256,45 +386,89 @@
             });
         }
 
+        // Replace the entire calculateTotals function with this new one
+
         function calculateTotals() {
             let subtotal = 0;
+            let totalDiscount = 0;
+
+            // Step 1: Loop through all product rows to calculate subtotal and total discount
             selectedProductsList.querySelectorAll('.product-item-row').forEach(row => {
                 const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
                 const salePrice = parseFloat(row.querySelector('.sale-price-input').value) || 0;
-                const discount = parseFloat(row.querySelector('.discount-input').value) || 0;
+                const discountPercent = parseFloat(row.querySelector('.discount-input').value) || 0;
+
                 if (quantity > 0 && salePrice >= 0) {
                     const lineTotal = quantity * salePrice;
-                    const discountAmount = lineTotal * (discount / 100);
-                    subtotal += lineTotal - discountAmount;
+                    const discountAmount = lineTotal * (discountPercent / 100);
+
+                    subtotal += lineTotal;
+                    totalDiscount += discountAmount;
                 }
             });
 
+            // Step 2: Calculate the taxable amount
+            const taxableAmount = subtotal - totalDiscount;
+
+            // Step 3: Calculate the GST based on the taxable amount
             let totalTax = 0;
             const gstType = gstTypeSelect.value;
+
             if (gstType === 'CGST') {
-                const cgst = parseFloat(document.getElementById('cgst')?.value) || 0;
-                const sgst = parseFloat(document.getElementById('sgst')?.value) || 0;
-                totalTax = subtotal * ((cgst + sgst) / 100);
+                const cgstInput = document.getElementById('cgst');
+                const sgstInput = document.getElementById('sgst');
+                const cgst = cgstInput ? parseFloat(cgstInput.value) || 0 : 0;
+                const sgst = sgstInput ? parseFloat(sgstInput.value) || 0 : 0;
+                totalTax = taxableAmount * ((cgst + sgst) / 100);
             } else if (gstType === 'IGST') {
-                const igst = parseFloat(document.getElementById('igst')?.value) || 0;
-                totalTax = subtotal * (igst / 100);
+                const igstInput = document.getElementById('igst');
+                const igst = igstInput ? parseFloat(igstInput.value) || 0 : 0;
+                totalTax = taxableAmount * (igst / 100);
             }
 
+            // Step 4: Calculate the final Grand Total
+            const grandTotal = taxableAmount + totalTax;
+
+            // Step 5: Update all the display elements in the Totals card
             document.getElementById('subtotal').textContent = `₹${subtotal.toFixed(2)}`;
-            document.getElementById('total_tax').textContent = `₹${totalTax.toFixed(2)}`;
-            document.getElementById('grand_total').textContent = `₹${(subtotal + totalTax).toFixed(2)}`;
+            document.getElementById('total_discount').textContent = `(-) ₹${totalDiscount.toFixed(2)}`;
+            document.getElementById('taxable_amount').textContent = `₹${taxableAmount.toFixed(2)}`;
+            document.getElementById('total_tax').textContent = `(+) ₹${totalTax.toFixed(2)}`;
+            document.getElementById('grand_total').textContent = `₹${grandTotal.toFixed(2)}`;
         }
+
 
         function updateGSTFields() {
             const gstType = gstTypeSelect.value;
-            gstFieldsContainer.innerHTML = '';
+            gstFieldsContainer.innerHTML = ''; // Clear previous fields
+
             if (gstType === 'CGST') {
-                gstFieldsContainer.innerHTML = `<div class="row"><div class="col-6"><label for="cgst" class="form-label">CGST (%)</label><input type="number" name="cgst" id="cgst" class="form-control gst-input" placeholder="e.g. 9" required></div><div class="col-6"><label for="sgst" class="form-label">SGST (%)</label><input type="number" name="sgst" id="sgst" class="form-control gst-input" placeholder="e.g. 9" required></div></div>`;
+                gstFieldsContainer.innerHTML = `
+            <div class="row">
+                <div class="col-6">
+                    <label for="cgst" class="form-label">CGST (%)</label>
+                    <input type="number" name="cgst" id="cgst" class="form-control gst-input" placeholder="e.g. 9" value="9" required>
+                </div>
+                <div class="col-6">
+                    <label for="sgst" class="form-label">SGST (%)</label>
+                    <input type="number" name="sgst" id="sgst" class="form-control gst-input" placeholder="e.g. 9" value="9" required>
+                </div>
+            </div>`;
             } else if (gstType === 'IGST') {
-                gstFieldsContainer.innerHTML = `<label for="igst" class="form-label">IGST (%)</label><input type="number" name="igst" id="igst" class="form-control gst-input" placeholder="e.g. 18" required>`;
+                gstFieldsContainer.innerHTML = `
+            <label for="igst" class="form-label">IGST (%)</label>
+            <input type="number" name="igst" id="igst" class="form-control gst-input" placeholder="e.g. 18" value="18" required>`;
             }
+
+            // THE FIX: Add event listeners to the new GST inputs
+            document.querySelectorAll('.gst-input').forEach(input => {
+                input.addEventListener('input', calculateTotals);
+            });
+
+            // Recalculate totals immediately after changing the GST type
             calculateTotals();
         }
+
 
         function validateRow(row) {
             let rowIsValid = true;
@@ -304,15 +478,23 @@
             const quantity = parseFloat(qtyInput.value);
             const stock = parseFloat(qtyInput.dataset.stock);
             qtyError.textContent = '';
-            if (isNaN(quantity) || quantity <= 0) { qtyError.textContent = 'Must be > 0.'; rowIsValid = false; }
-            else if (quantity > stock) { qtyError.textContent = `Max stock: ${stock}`; rowIsValid = false; }
+            if (isNaN(quantity) || quantity <= 0) {
+                qtyError.textContent = 'Must be > 0.';
+                rowIsValid = false;
+            } else if (quantity > stock) {
+                qtyError.textContent = `Max stock: ${stock}`;
+                rowIsValid = false;
+            }
 
             // Sale Price
             const priceInput = row.querySelector('.sale-price-input');
             const priceError = priceInput.closest('.input-group').nextElementSibling;
             const salePrice = parseFloat(priceInput.value);
             priceError.textContent = '';
-            if (isNaN(salePrice) || salePrice < 0) { priceError.textContent = 'Cannot be negative.'; rowIsValid = false; }
+            if (isNaN(salePrice) || salePrice < 0) {
+                priceError.textContent = 'Cannot be negative.';
+                rowIsValid = false;
+            }
 
             return rowIsValid;
         }
@@ -429,7 +611,7 @@
         gstTypeSelect.addEventListener('change', updateGSTFields);
 
         // --- Form Submission Logic ---
-        invoiceForm.addEventListener('submit', function (e) {
+        invoiceForm.addEventListener('submit', function(e) {
             e.preventDefault();
             let allRowsValid = true;
             selectedProductsList.querySelectorAll('.product-item-row').forEach(row => {
@@ -447,90 +629,90 @@
             const submitButton = this.querySelector('button[type="submit"]');
             submitButton.disabled = true;
             submitButton.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Creating...`;
-            
+
             const formData = new FormData(this);
             fetch("{{ route('invoices.store') }}", {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: data.message,
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                    setTimeout(() => window.location.href = "{{ route('invoices.index') }}", 2000);
-                } else {
-                    let errorHtml = '<ul>';
-                    if (data.errors) {
-                        for (const messages of Object.values(data.errors)) {
-                            errorHtml += `<li>${messages[0]}</li>`;
-                        }
-                    } else {
-                        errorHtml += `<li>${data.message || 'An unknown error occurred.'}</li>`;
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
                     }
-                    errorHtml += '</ul>';
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: data.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        setTimeout(() => window.location.href = "{{ route('invoices.index') }}", 2000);
+                    } else {
+                        let errorHtml = '<ul>';
+                        if (data.errors) {
+                            for (const messages of Object.values(data.errors)) {
+                                errorHtml += `<li>${messages[0]}</li>`;
+                            }
+                        } else {
+                            errorHtml += `<li>${data.message || 'An unknown error occurred.'}</li>`;
+                        }
+                        errorHtml += '</ul>';
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Validation Failed',
+                            html: errorHtml
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Submission Error:', error);
                     Swal.fire({
                         icon: 'error',
-                        title: 'Validation Failed',
-                        html: errorHtml
+                        title: 'Submission Error',
+                        text: 'Could not connect to the server. Please try again.'
                     });
-                }
-            })
-            .catch(error => {
-                console.error('Submission Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Submission Error',
-                    text: 'Could not connect to the server. Please try again.'
+                })
+                .finally(() => {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Create Invoice';
                 });
-            })
-            .finally(() => {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Create Invoice';
-            });
         });
-        
-        addProductForm.addEventListener('submit', function (e) {
+
+        addProductForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             fetch("{{ route('products.store') }}", {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const newProduct = data.product;
-                    products.push(newProduct);
-                    productStockMap.set(newProduct.id, newProduct.stock);
-                    this.reset();
-                    modalInstance.hide();
-                    addProduct(newProduct);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'Product added successfully!'
-                    });
-                } else {
-                    for (const [field, message] of Object.entries(data.errors)) {
-                        document.getElementById(`${field}-error`).textContent = message[0];
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
                     }
-                }
-            })
-            .catch(error => console.error('Error adding product:', error));
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const newProduct = data.product;
+                        products.push(newProduct);
+                        productStockMap.set(newProduct.id, newProduct.stock);
+                        this.reset();
+                        modalInstance.hide();
+                        addProduct(newProduct);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: 'Product added successfully!'
+                        });
+                    } else {
+                        for (const [field, message] of Object.entries(data.errors)) {
+                            document.getElementById(`${field}-error`).textContent = message[0];
+                        }
+                    }
+                })
+                .catch(error => console.error('Error adding product:', error));
         });
     }
 </script>

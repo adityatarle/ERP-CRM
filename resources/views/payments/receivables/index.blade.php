@@ -214,11 +214,18 @@
 
                     <div class="mb-3">
                         <label for="invoices-list" class="form-label fw-bold">Unpaid Invoices</label>
+
+                        <!-- ================================== -->
+                        <!-- ==== ADD THIS SEARCH BAR HERE ==== -->
+                        <!-- ================================== -->
+                        <div class="mb-2">
+                            <input type="text" id="invoice_search_input" class="form-control form-control-sm" placeholder="Search by Invoice #" oninput="filterInvoices()">
+                        </div>
+                        
                         <div id="invoices-list" class="border rounded p-3" style="min-height: 100px; max-height: 250px; overflow-y: auto; background-color: #f8f9fa;">
                             <p class="text-muted mb-0">Enter an amount and select a customer to view unpaid invoices.</p>
                         </div>
 
-                        <!-- THE MAIN CHANGE IS HERE -->
                         <input type="hidden" name="invoice_ids" id="invoice_ids" value="[]">
                         @error('invoice_ids')
                         <div class="text-danger mt-1">{{ $message }}</div>
@@ -302,8 +309,11 @@
             const amountInfoSpan = document.getElementById('amount-to-be-paid');
             const customerDropdown = document.getElementById('modal_customer_id');
             const invoiceListDiv = document.getElementById('invoices-list');
-            const hiddenInput = document.getElementById('invoice_ids'); // Correct ID
+            const hiddenInput = document.getElementById('invoice_ids');
             const submitButton = document.getElementById('submit-payment-btn');
+
+            // NEW: Clear the search input when the amount changes
+            document.getElementById('invoice_search_input').value = '';
 
             // Reset everything when the amount changes
             customerDropdown.value = '';
@@ -316,7 +326,7 @@
 
             amountInfoSpan.textContent = enteredAmount > 0 ?
                 `Entered Amount: ₹${enteredAmount.toFixed(2)}` :
-                'Please enter a valid amount greater than 0.';
+                'Please enter the amount received from the customer.';
         }
 
         // --- Step 2: Triggered when user selects a Customer ---
@@ -324,6 +334,9 @@
             const customerId = document.getElementById('modal_customer_id').value;
             const invoiceListDiv = document.getElementById('invoices-list');
             const submitButton = document.getElementById('submit-payment-btn');
+
+            // NEW: Clear the search input when a new customer is selected
+            document.getElementById('invoice_search_input').value = '';
 
             // Reset UI for new customer selection
             invoiceListDiv.innerHTML = '<p class="text-muted mb-0">Loading invoices...</p>';
@@ -344,7 +357,6 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log('Invoices received from server:', data); // For debugging
                     invoiceData = data;
 
                     if (!Array.isArray(data) || data.length === 0) {
@@ -385,6 +397,10 @@
 
             data.forEach(invoice => {
                 const row = document.createElement('tr');
+                
+                // MODIFIED: Add a class to the row so the filter function can find it
+                row.className = 'invoice-row';
+                
                 row.innerHTML = `
                     <td><input type="checkbox" class="invoice-checkbox" data-id="${invoice.id}" data-amount="${invoice.amount.toFixed(2)}" onchange="updateSelectedInvoices()"></td>
                     <td>${invoice.ref_no}</td>
@@ -402,6 +418,12 @@
             const checkboxes = document.querySelectorAll('.invoice-checkbox');
 
             checkboxes.forEach(checkbox => {
+                const paymentInput = checkbox.closest('tr').querySelector('.payment-amount');
+                paymentInput.value = '0.00';
+                checkbox.checked = false;
+            });
+
+            checkboxes.forEach(checkbox => {
                 if (remainingToAllocate <= 0) return;
 
                 const outstanding = parseFloat(checkbox.dataset.amount);
@@ -412,6 +434,28 @@
                     checkbox.checked = true;
                     paymentInput.value = paymentAmount.toFixed(2);
                     remainingToAllocate -= paymentAmount;
+                }
+            });
+        }
+        
+        // ===============================================
+        // ==== NEW FUNCTION TO FILTER THE INVOICES ====
+        // ===============================================
+        window.filterInvoices = function() {
+            const searchTerm = document.getElementById('invoice_search_input').value.toLowerCase();
+            const rows = document.querySelectorAll('.invoice-row');
+
+            rows.forEach(row => {
+                // The invoice number is in the second cell (index 1)
+                const invoiceNumberCell = row.cells[1]; 
+                if (invoiceNumberCell) {
+                    const invoiceNumber = invoiceNumberCell.textContent.toLowerCase();
+                    // Show or hide based on match
+                    if (invoiceNumber.includes(searchTerm)) {
+                        row.style.display = ''; // Show
+                    } else {
+                        row.style.display = 'none'; // Hide
+                    }
                 }
             });
         }
@@ -445,14 +489,12 @@
             hiddenInput.value = JSON.stringify(selectedInvoicesForSubmission);
 
             // Update the information display text
-            const totalOutstanding = invoiceData.reduce((sum, inv) => sum + inv.amount, 0);
             const totalPayment = totalAllocated + tdsAmount;
             const balance = enteredAmount - totalPayment;
-
-            amountInfoSpan.innerHTML = `Entered: <b class="text-dark">₹${enteredAmount.toFixed(2)}</b> | Allocated: <b class="text-primary">₹${totalAllocated.toFixed(2)}</b> | TDS: <b class="text-info">₹${tdsAmount.toFixed(2)}</b> | Balance: <b class="${balance < 0 ? 'text-danger' : 'text-success'}">₹${balance.toFixed(2)}</b>`;
+            amountInfoSpan.innerHTML = `Entered: <b class="text-dark">₹${enteredAmount.toFixed(2)}</b> | Allocated: <b class="text-primary">₹${totalAllocated.toFixed(2)}</b> | TDS: <b class="text-info">₹${tdsAmount.toFixed(2)}</b> | Balance: <b class="${Math.abs(balance) > 0.01 ? 'text-danger' : 'text-success'}">₹${balance.toFixed(2)}</b>`;
 
             // Enable or disable the submit button based on valid conditions
-            const isInvalid = totalAllocated <= 0 || balance < -0.01; // Allow for tiny rounding errors
+            const isInvalid = totalAllocated <= 0 || Math.abs(balance) > 0.01; // Allow for tiny rounding errors
             submitButton.disabled = isInvalid;
         }
 
@@ -473,8 +515,6 @@
             }
             updateSelectedInvoices();
         }
-
-        // No need for a separate exportToExcel function here as it's not part of the modal.
     });
 </script>
 @include('layout.footer')

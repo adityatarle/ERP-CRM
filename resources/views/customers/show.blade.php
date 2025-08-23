@@ -3,7 +3,7 @@
 <style>
     /* Add some specific styling for the ledger */
     .summary-card {
-        border-left: 5px solid #198754; /* Green border for customer summary */
+        border-left: 5px solid #0d6efd; /* Blue border for customer summary */
     }
     .table-responsive {
         max-height: 500px; /* Makes long tables scrollable */
@@ -19,6 +19,20 @@
     <div class="main-content-area">
         <div class="container p-3 p-md-4 mx-auto">
             
+            <!-- Success/Error Messages for Email Action -->
+            @if (session('success'))
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    {{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+            @if (session('error'))
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+
             <!-- Customer Details & Actions -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center p-3 gap-2">
@@ -26,14 +40,27 @@
                         <i class="fa fa-user me-2"></i>
                         {{ $customer->name }} - Customer Ledger
                     </h1>
-                    <div class="d-flex gap-2">
+                    
+                    {{-- UPDATED ACTIONS --}}
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{{ route('customers.exportLedger', $customer->id) }}" class="btn btn-sm btn-success">
+                            <i class="fa fa-file-excel me-1"></i> Export Ledger
+                        </a>
+                        <form action="{{ route('customers.emailLedger', $customer->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to email this statement to {{ $customer->email }}?');" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-info text-white" {{ !$customer->email ? 'disabled' : '' }} title="{{ !$customer->email ? 'Customer has no email address' : 'Email statement to customer' }}">
+                                <i class="fa fa-paper-plane me-1"></i> Email Ledger
+                            </button>
+                        </form>
                         <a href="{{ route('customers.edit', $customer->id) }}" class="btn btn-sm btn-primary">
-                            <i class="fa fa-edit me-1"></i> Edit Customer
+                            <i class="fa fa-edit me-1"></i> Edit
                         </a>
                         <a href="{{ route('customers.index') }}" class="btn btn-sm btn-outline-secondary">
-                            <i class="fa fa-arrow-left me-1"></i> Back to List
+                            <i class="fa fa-arrow-left me-1"></i> Back
                         </a>
                     </div>
+                    {{-- END OF UPDATED ACTIONS --}}
+
                 </div>
                 <div class="card-body p-4">
                     <dl class="row mb-0">
@@ -55,7 +82,7 @@
             <!-- Account Statement Summary -->
             <div class="card shadow-sm border-0 mb-4 summary-card">
                 <div class="card-body">
-                    <h5 class="card-title">Account Statement</h5>
+                    <h5 class="card-title">Account Summary</h5>
                     <div class="row text-center">
                         <div class="col-md-4">
                             <div class="stat-box p-3">
@@ -65,7 +92,7 @@
                         </div>
                         <div class="col-md-4">
                             <div class="stat-box p-3">
-                                <h6>Total Received</h6>
+                                <h6>Total Received (incl. TDS)</h6>
                                 <h4 class="fw-bold text-success">₹{{ number_format($totalReceived, 2) }}</h4>
                             </div>
                         </div>
@@ -89,26 +116,26 @@
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-hover mb-0">
-                                    <thead>
+                                    <thead class="table-light">
                                         <tr>
                                             <th>Date</th>
                                             <th>Invoice #</th>
-                                            <th>Total</th>
+                                            <th class="text-end">Total</th>
                                             <th>Status</th>
                                             <th class="text-center">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse ($customer->invoices as $invoice)
+                                        @forelse ($customer->invoices->sortByDesc('issue_date') as $invoice)
                                             <tr>
-                                                <td>{{ $invoice->created_at->format('d-m-Y') }}</td>
+                                                <td>{{ $invoice->issue_date ? $invoice->issue_date->format('d M, Y') : 'N/A' }}</td>
                                                 <td>{{ $invoice->invoice_number }}</td>
-                                                <td>₹{{ number_format($invoice->total, 2) }}</td>
+                                                <td class="text-end">₹{{ number_format($invoice->total, 2) }}</td>
                                                 <td>
-                                                    <span class="badge bg-{{ match($invoice->status) {'paid' => 'success', 'on_hold' => 'danger', 'approved' => 'info', default => 'secondary'} }}">{{ ucfirst($invoice->status) }}</span>
+                                                    <span class="badge bg-{{ match($invoice->payment_status) {'paid' => 'success', 'partially_paid' => 'info', default => 'warning'} }}">{{ str_replace('_', ' ', Str::title($invoice->payment_status)) }}</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <a href="{{ route('invoices.show', $invoice->id) }}" class="btn btn-sm btn-outline-info" title="View Invoice">
+                                                    <a href="{{ route('invoices.show', $invoice->id) }}" class="btn btn-sm btn-outline-primary" title="View Invoice">
                                                         <i class="fa fa-eye"></i>
                                                     </a>
                                                 </td>
@@ -134,20 +161,20 @@
                         <div class="card-body p-0">
                              <div class="table-responsive">
                                 <table class="table table-hover mb-0">
-                                    <thead>
+                                    <thead class="table-light">
                                         <tr>
                                             <th>Payment Date</th>
-                                            <th>Amount Received</th>
-                                            <th>TDS</th>
+                                            <th class="text-end">Amount Received</th>
+                                            <th class="text-end">TDS</th>
                                             <th>Notes / Bank</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @forelse ($customer->payments as $payment)
                                             <tr>
-                                                <td>{{ $payment->payment_date->format('d-m-Y') }}</td>
-                                                <td>₹{{ number_format($payment->amount, 2) }}</td>
-                                                <td>₹{{ number_format($payment->tds_amount, 2) }}</td>
+                                                <td>{{ $payment->payment_date->format('d M, Y') }}</td>
+                                                <td class="text-end">₹{{ number_format($payment->amount, 2) }}</td>
+                                                <td class="text-end">₹{{ number_format($payment->tds_amount, 2) }}</td>
                                                 <td>
                                                     {{ $payment->notes }}
                                                     @if($payment->bank_name)

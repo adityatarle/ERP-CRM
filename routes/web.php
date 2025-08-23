@@ -231,6 +231,9 @@ Route::middleware('auth')->group(function () {
     });
     Route::get('/products/export/excel', [ProductController::class, 'export'])->name('products.export');
     Route::post('/products/import/excel', [ProductController::class, 'import'])->name('products.import');
+     Route::resource('customers', CustomerController::class);
+    Route::get('/customers/{customer}/export-ledger', [CustomerController::class, 'exportLedger'])->name('customers.exportLedger');
+    Route::post('/customers/{customer}/email-ledger', [CustomerController::class, 'emailLedger'])->name('customers.emailLedger');
 
     // Customer routes
     Route::resource('customers', CustomerController::class)->names([

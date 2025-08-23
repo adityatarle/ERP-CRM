@@ -5,23 +5,22 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Purchase Order - {{ $purchaseOrder->purchase_order_number }}</title>
     <style>
-        /* This CSS is identical to your working Receipt Note PDF */
         @font-face {
             font-family: 'DejaVu Sans';
-            src: url('{{ storage_path(' fonts/DejaVuSans.ttf') }}') format('truetype');
+            src: url('{{ storage_path('fonts/DejaVuSans.ttf') }}') format('truetype');
             font-weight: normal;
             font-style: normal;
         }
 
         @font-face {
             font-family: 'DejaVu Sans';
-            src: url('{{ storage_path(' fonts/DejaVuSans-Bold.ttf') }}') format('truetype');
+            src: url('{{ storage_path('fonts/DejaVuSans-Bold.ttf') }}') format('truetype');
             font-weight: bold;
             font-style: normal;
         }
 
         @page {
-            margin: 290px 50px 150px 50px;
+            margin: 120px 50px 150px 50px;
         }
 
         body {
@@ -40,7 +39,7 @@
         }
 
         .header {
-            top: -290px;
+            top: -50px;
         }
 
         .footer {
@@ -54,7 +53,7 @@
 
         td,
         th {
-            border: 1px solid #000;
+            border: 1px solid grey;
             padding: 5px;
             word-wrap: break-word;
         }
@@ -72,7 +71,7 @@
             font-size: 20px;
             font-weight: bold;
             padding-bottom: 5px;
-            border-bottom: 2px solid #000;
+            border-bottom: 2px solid grey;
         }
 
         .no-border td,
@@ -99,58 +98,56 @@
         .v-align-top {
             vertical-align: top;
         }
+
+        .items-table {
+            border-top: 1px solid grey;
+            border-bottom: 1px solid grey;
+            border-left: none;
+            border-right: none;
+            border-collapse: collapse;
+        }
+
+        .items-table th,
+        .items-table td {
+            border-top: none;
+            border-bottom: none;
+            border-left: 1px solid grey;
+            border-right: 1px solid grey;
+        }
+
+        .items-table thead th {
+            border-top: 1px solid grey;
+            border-bottom: 1px solid grey;
+        }
     </style>
 </head>
 
 <body>
-
-    <!-- ================== FIXED HEADER ================== -->
     <header class="header">
-        <div class="header-title">PURCHASE ORDER</div>
-        <table class="no-border" style="margin-top: 5px;">
+        <p class="header-title">PURCHASE ORDER</p>
+        <table class="no-border" style="width: 100%;">
             <tr>
-                <td class="w-50 v-align-top">
-                    <div class="w-100" style="border: 1px solid #000;">
-                        <h3 style="border: none; padding-left: 5px; font-size: 14px;" class="font-bold">{{ $company['name'] }}</h3>
-                        <p style="border: none; padding-left: 5px;">{{ $company['address'] }}</p>
-                        <p style="border: none; padding-left: 5px;">Mob: {{ $company['contact'] }}</p>
-                        <p style="border: none; padding-left: 5px;">GSTIN/UIN: {{ $company['gstin'] }}</p>
-                        <p style="border: none; padding-left: 5px;">State Name: {{ $company['state'] }}</p>
-                        <p style="border: none; padding-left: 5px;">E-Mail: {{ $company['email'] }}</p>
-                    </div>
+                <td style="width: 60%; vertical-align: top;">
+                    <p style="padding-left: 5px; font-size: 12px; font-weight: bold; margin:0;">{{ $company['name'] }}</p>
+                    <p style="padding-left: 5px; margin:0;">{{ $company['address'] }}</p>
+                    <p style="padding-left: 5px; margin:0;">Mob: {{ $company['contact'] }}</p>
+                    <p style="padding-left: 5px; margin:0;">GSTIN/UIN: {{ $company['gstin'] }}</p>
+                    <p style="padding-left: 5px; margin:0;">State Name: {{ $company['state'] }}</p>
+                    <p style="padding-left: 5px; margin:0;">E-Mail: {{ $company['email'] }}</p>
                 </td>
-                <td class="w-50 v-align-top">
-                    <table class="w-100" style="border-collapse: collapse;">
-                        <tr>
-                            <td><span class="font-bold">Voucher No.</span><br>{{ $purchaseOrder->id }}</td>
-                            <td><span class="font-bold">Dated</span><br>{{ \Carbon\Carbon::parse($purchaseOrder->order_date)->format('d-M-y') }}</td>
-                        </tr>
-                        <tr>
-                            <td><span class="font-bold">Reference No. & Date.</span><br>{{ $purchaseOrder->purchase_order_number }}</td>
-                            <td><span class="font-bold">Other References</span><br>US HYDRAULICS</td>
-                        </tr>
-                    </table>
+                <td style="width: 40%; vertical-align: top; text-align: center;">
+                    <img src="{{ public_path('assets/img/mauli-logo.jpeg') }}" alt="Logo" style="height: 80px;">
                 </td>
             </tr>
         </table>
-
+        <hr style="margin: 5px 0; border: 1px solid #000;">
     </header>
-    <!-- ========================================================================= -->
-    <div class="no-border">
-        <div class="w-100" style="border: 1px solid #000;">
-            <p style="border: none; padding-left: 5px; font-size: 10px;">Supplier (Bill from)</p>
-            <p style="border: none; padding-left: 5px; font-size: 14px;" class="font-bold">{{ $purchaseOrder->party->name }}</p>
-            <p style="border: none; padding-left: 5px;">{{ $purchaseOrder->party->address }}</p>
-            <p style="border: none; padding-left: 5px;">GSTIN/UIN: {{ $purchaseOrder->party->gst_in }}</p>
-            <p style="border: none; padding-left: 5px;">State Name: Maharashtra, Code: 27</p>
-        </div>
-    </div>
-    <!-- ================== FIXED FOOTER ================== -->
+
     <footer class="footer">
         <table class="no-border">
             <tr>
                 <td class="w-50 v-align-top">
-                    <span class="font-bold">Buyer's PAN:</span> {{ $company['pan'] }}
+                    <span class="font-bold">Company's PAN:</span> {{ $company['pan'] }}
                 </td>
                 <td class="w-50 text-right v-align-top">
                     for <span class="font-bold">{{ $company['name'] }}</span>
@@ -159,19 +156,38 @@
             </tr>
         </table>
     </footer>
-    <!-- ========================================================================= -->
 
-    <!-- ================== FLOWING CONTENT ================== -->
     <main>
-        <table>
+        <!-- FIXED: Added margin-top to avoid overlap -->
+        <table class="no-border" style="width: 100%; margin-top: 60px;">
+            <tr>
+                <td style="width: 50%; vertical-align: top;">
+                    <p style="padding-left: 5px; font-size: 10px; margin:0;">Supplier (Bill From)</p>
+                    <p style="padding-left: 5px; font-size: 12px; font-weight: bold; margin:0;">{{ $purchaseOrder->party->name }}</p>
+                    <p style="padding-left: 5px; margin:0;">{{ $purchaseOrder->party->address }}</p>
+                    <p style="padding-left: 5px; margin:0;">GSTIN/UIN: {{ $purchaseOrder->party->gst_in }}</p>
+                    <p style="padding-left: 5px; margin:0;">State Name: {{ $purchaseOrder->party->state ?? 'N/A' }}, Code: {{ $purchaseOrder->party->state_code ?? 'N/A' }}</p>
+                </td>
+                <td style="width: 50%; vertical-align: top;">
+                    <table style="width: 100%;">
+                        <tr>
+                            <td><strong>Purchase Order No.</strong><br>{{ $purchaseOrder->purchase_order_number }}</td>
+                            <td><strong>Dated</strong><br>{{ \Carbon\Carbon::parse($purchaseOrder->order_date)->format('d-M-y') }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <table class="items-table" style="margin-top: 10px;">
             <thead>
                 <tr>
                     <th class="text-center" style="width: 5%;">Sl No.</th>
-                    <th class="text-center" style="width: 55%;">Description of Goods</th>
-                    <th class="text-center" style="width: 10%;">Quantity</th>
+                    <th class="text-center" style="width: 35%;">Description of Goods</th>
+                    <th class="text-center" style="width: 15%;">Buyer Name</th>
+                    <th class="text-center" style="width: 10%;">Qty</th>
                     <th class="text-center" style="width: 10%;">Rate</th>
-                    <th class="text-center" style="width: 10%;">per</th>
-                    <th class="text-center" style="width: 10%;">Disc. %</th>
+                    <th class="text-center" style="width: 5%;">Disc. %</th>
                     <th class="text-center" style="width: 10%;">Amount</th>
                 </tr>
             </thead>
@@ -179,80 +195,99 @@
                 @foreach($purchaseOrder->items as $index => $item)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td>{{ $item->product->name }}</td>
+                    <td style="font-weight: 600;">{{ $item->product->name }}</td>
+                    <td>{{ $item->buyer_name }}</td>
                     <td class="text-center">{{ $item->quantity }} NOS</td>
                     <td class="text-right">{{ number_format($item->unit_price, 2) }}</td>
-                    <td class="text-center">NOS</td>
-                    <td class="text-right">{{ $item->discount ?? '0' }}</td>
-                    <td class="text-right">{{ number_format($item->quantity * $item->unit_price * (1 - ($item->discount ?? 0) / 100), 2) }}</td>
+                    <td class="text-center">{{ number_format($item->discount ?? 0, 2) }}</td>
+                    <td class="text-right">
+                        {{ number_format($item->quantity * $item->unit_price * (1 - ($item->discount ?? 0) / 100), 2) }}
+                    </td>
                 </tr>
                 @endforeach
 
-                @for ($i = $purchaseOrder->items->count(); $i < 5; $i++)
-                    <tr>
-                    <td> </td>
-                    <td> </td>
-                    <td> </td>
-                    <td> </td>
-                    <td> </td>
-                    <td> </td>
-                    <td> </td>
-                    </tr>
-                    @endfor
+                @for ($i = $purchaseOrder->items->count(); $i < 7; $i++)
+                <tr>
+                    <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+                </tr>
+                @endfor
             </tbody>
         </table>
 
-        <!-- Totals Section -->
-        <table style="margin-top: 0px;">
+        <table style="margin-top: 10px;">
             <tr>
-                <td colspan="5" rowspan="4" style="border-bottom: none; border-left: none; width: 60%;">
+                <td colspan="5" rowspan="4" style="border-bottom: none; border-left: none; border-top: none; width: 60%;">
                     <span class="font-bold">Amount Chargeable (in words)</span><br>
-                    <b>INR {{ $amountInWords }} Rupees Only</b>
+                    <p class="font-bold">INR {{ $amountInWords ?? 'Zero' }} Rupees Only</p>
                 </td>
                 <td class="text-left font-bold" style="width: 20%;">Subtotal</td>
                 <td class="text-right font-bold" style="width: 20%;">{{ number_format($subtotal, 2) }}</td>
             </tr>
             @if ($totalCgst > 0 || $totalSgst > 0)
             <tr>
-                <td class="text-left">CGST @ {{ $purchaseOrder->items->first()->cgst ?? 9 }}%</td>
+                <td class="text-left">CGST @ {{ $purchaseOrder->items->first()->cgst ?? 0 }}%</td>
                 <td class="text-right">{{ number_format($totalCgst, 2) }}</td>
             </tr>
             <tr>
-                <td class="text-left">SGST @ {{ $purchaseOrder->items->first()->sgst ?? 9 }}%</td>
+                <td class="text-left">SGST @ {{ $purchaseOrder->items->first()->sgst ?? 0 }}%</td>
                 <td class="text-right">{{ number_format($totalSgst, 2) }}</td>
-            </tr>
-            @else
-            <tr>
-                <td> </td>
-                <td> </td>
-            </tr>
-            <tr>
-                <td> </td>
-                <td> </td>
             </tr>
             @endif
             @if ($totalIgst > 0)
             <tr>
-                <td class="text-left">IGST @ {{ $purchaseOrder->items->first()->igst ?? 18 }}%</td>
+                <td class="text-left">IGST @ {{ $purchaseOrder->items->first()->igst ?? 0 }}%</td>
                 <td class="text-right">{{ number_format($totalIgst, 2) }}</td>
             </tr>
             @endif
+        </table>
 
+        <p style="text-align: right;"> E. & O.E</p>
+
+        <table style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th class="text-center">HSN/SAC</th>
+                    <th class="text-center">Taxable Value</th>
+                    <th class="text-center">CGST</th>
+                    <th class="text-center">SGST</th>
+                    <th class="text-center">IGST</th>
+                    <th class="text-center">Total Tax</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php
+                    $hsnGroups = $purchaseOrder->items->groupBy('product.hsn');
+                @endphp
+                @foreach($hsnGroups as $hsn => $items)
+                    @php
+                        $taxable = $items->sum(fn($i) => $i->quantity * $i->unit_price * (1 - ($i->discount ?? 0) / 100));
+                        $cgst = $taxable * ($items->first()->cgst / 100);
+                        $sgst = $taxable * ($items->first()->sgst / 100);
+                        $igst = $taxable * ($items->first()->igst / 100);
+                    @endphp
+                    <tr>
+                        <td class="text-center">{{ $hsn ?? 'N/A' }}</td>
+                        <td class="text-right">{{ number_format($taxable, 2) }}</td>
+                        <td class="text-right">{{ number_format($cgst, 2) }}</td>
+                        <td class="text-right">{{ number_format($sgst, 2) }}</td>
+                        <td class="text-right">{{ number_format($igst, 2) }}</td>
+                        <td class="text-right">{{ number_format($cgst + $sgst + $igst, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
         </table>
 
         <table style="margin-top: 0px;">
             <tfoot>
                 <tr>
-                    <td colspan="2" class="font-bold">Total</td>
+                    <td colspan="3" class="font-bold">Total</td>
                     <td class="text-center font-bold" style="width: 10%;">{{ $totalQuantity }} NOS</td>
                     <td colspan="3"></td>
                     <td class="text-right font-bold">₹ {{ number_format($grandTotal, 2) }}</td>
                 </tr>
             </tfoot>
         </table>
-        <p style="text-align: right;"> E. & O.E</p>
     </main>
-    <!-- ========================================================================= -->
 </body>
 
 </html>

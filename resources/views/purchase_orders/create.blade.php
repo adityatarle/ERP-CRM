@@ -6,7 +6,10 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <style>
-    .main-content-area { background-color: #f8f9fa; }
+    .main-content-area {
+        background-color: #f8f9fa;
+    }
+
     .product-row {
         border: 1px solid #dee2e6;
         border-radius: .375rem;
@@ -15,35 +18,73 @@
         background-color: #ffffff;
         position: relative;
     }
+
     .product-row .remove-row-btn {
         position: absolute;
         top: 10px;
         right: 10px;
     }
+
     .totals-section {
         background-color: #e9ecef;
         border-radius: .375rem;
         padding: 1.5rem;
         margin-top: 1.5rem;
     }
-    .totals-section .row { font-size: 1.2rem; font-weight: 500; }
-    .totals-section .grand-total { font-size: 1.6rem; font-weight: bold; }
-    .suggestions-container { position: relative; }
-    .party-suggestions, .product-suggestions {
-        position: absolute; z-index: 1050; background-color: white;
-        border: 1px solid #ced4da; max-height: 250px; overflow-y: auto;
-        width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .party-suggestions .list-group-item:hover, .product-suggestions .list-group-item:hover {
-        background-color: #0d6efd; color: #fff;
-    }
-    .validation-error { color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; }
 
-    .gst-mode-igst .product-row .cgst-sgst-group { display: none; }
-    .gst-mode-igst .product-row .igst-group { display: block; }
-    
-    .gst-mode-cgst .product-row .cgst-sgst-group { display: flex; }
-    .gst-mode-cgst .product-row .igst-group { display: none; }
+    .totals-section .row {
+        font-size: 1.2rem;
+        font-weight: 500;
+    }
+
+    .totals-section .grand-total {
+        font-size: 1.6rem;
+        font-weight: bold;
+    }
+
+    .suggestions-container {
+        position: relative;
+    }
+
+    .party-suggestions,
+    .product-suggestions {
+        position: absolute;
+        z-index: 1050;
+        background-color: white;
+        border: 1px solid #ced4da;
+        max-height: 250px;
+        overflow-y: auto;
+        width: 100%;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .party-suggestions .list-group-item:hover,
+    .product-suggestions .list-group-item:hover {
+        background-color: #0d6efd;
+        color: #fff;
+    }
+
+    .validation-error {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+    }
+
+    .gst-mode-igst .product-row .cgst-sgst-group {
+        display: none;
+    }
+
+    .gst-mode-igst .product-row .igst-group {
+        display: block;
+    }
+
+    .gst-mode-cgst .product-row .cgst-sgst-group {
+        display: flex;
+    }
+
+    .gst-mode-cgst .product-row .igst-group {
+        display: none;
+    }
 </style>
 
 <body class="act-po">
@@ -54,7 +95,7 @@
                     <h1 class="mb-0 h5 text-white">Create Purchase Order</h1>
                 </div>
                 <div class="card-body p-4">
-                     <form action="{{ route('purchase_orders.store') }}" method="POST" id="purchaseOrderForm">
+                    <form action="{{ route('purchase_orders.store') }}" method="POST" id="purchaseOrderForm">
                         @csrf
                         <div class="row g-3 mb-4">
                             <div class="col-md-4 suggestions-container">
@@ -64,7 +105,6 @@
                                 <div id="party-suggestions" class="list-group party-suggestions" style="display: none;"></div>
                             </div>
 
-                            <!-- THE FIX: Add the new Customer Name field here -->
                             <div class="col-md-4">
                                 <label for="customer_name" class="form-label">Customer Name (Optional)</label>
                                 <input type="text" name="customer_name" id="customer_name" class="form-control" placeholder="Enter end customer name...">
@@ -116,16 +156,23 @@
         </div>
     </div>
 
+    <!-- Modal for adding a new product -->
     <div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header"><h5 class="modal-title" id="addProductModalLabel">Add New Product</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addProductModalLabel">Add New Product</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
                 <div class="modal-body">
                     <form id="add-product-form">
                         @csrf
                         <div class="mb-3"><label for="modal_name" class="form-label">Name</label><input type="text" name="name" id="modal_name" class="form-control" required></div>
-                        <div class="mb-3"><label for="modal_category" class="form-label">Category</label><select name="category" id="modal_category" class="form-control" required><option value="">Select Category</option>@if(!empty($categories))@foreach($categories as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach @endif</select></div>
-                        <div class="mb-3"><label for="modal_subcategory" class="form-label">Sub-Category</label><select name="subcategory" id="modal_subcategory" class="form-control"><option value="">Select Sub-Category</option>@if(!empty($subcategories))@foreach($subcategories as $subcategory)<option value="{{ $subcategory }}">{{ $subcategory }}</option>@endforeach @endif</select></div>
+                        <div class="mb-3"><label for="modal_category" class="form-label">Category</label><select name="category" id="modal_category" class="form-control" required>
+                                <option value="">Select Category</option>@if(!empty($categories))@foreach($categories as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach @endif
+                            </select></div>
+                        <div class="mb-3"><label for="modal_subcategory" class="form-label">Sub-Category</label><select name="subcategory" id="modal_subcategory" class="form-control">
+                                <option value="">Select Sub-Category</option>@if(!empty($subcategories))@foreach($subcategories as $subcategory)<option value="{{ $subcategory }}">{{ $subcategory }}</option>@endforeach @endif
+                            </select></div>
                         <div class="mb-3"><label for="modal_price" class="form-label">Price</label><input type="number" name="price" id="modal_price" class="form-control" step="0.01" min="0" required></div>
                         <div class="mb-3"><label for="modal_hsn" class="form-label">HSN Code</label><input type="text" name="hsn" id="modal_hsn" class="form-control"></div>
                         <div class="mb-3"><label for="modal_discount" class="form-label">Discount (%)</label><input type="number" name="discount" id="modal_discount" class="form-control" value="0" step="0.01" min="0" max="100" required></div>
@@ -155,7 +202,9 @@
         let selectedParty = null;
 
         function addProductRow(product = null) {
-            if (product && selectedProductIds.has(product.id)) { return; }
+            if (product && selectedProductIds.has(product.id)) {
+                return;
+            }
             if (product) selectedProductIds.add(product.id);
 
             const rowIndex = rowCount;
@@ -163,7 +212,8 @@
             newRow.className = 'product-row';
             newRow.id = `row-${rowIndex}`;
             if (product) newRow.dataset.productId = product.id;
-            
+
+            // --- THE FINAL FIX IS IN THIS TEMPLATE ---
             newRow.innerHTML = `
                 <button type="button" class="btn btn-sm btn-danger remove-row-btn"><i class="fa fa-times"></i></button>
                 <div class="row g-3 align-items-end">
@@ -173,9 +223,13 @@
                         <input type="hidden" name="products[${rowIndex}][product_id]" class="product-id-input" value="${product ? product.id : ''}">
                         <div class="list-group product-suggestions" style="display: none;"></div>
                     </div>
-                    <div class="col-lg-2 col-md-6"><label class="form-label">Quantity</label><input type="number" name="products[${rowIndex}][quantity]" class="form-control quantity-input" min="1" required></div>
+                    <div class="col-lg-2 col-md-6">
+                        <label class="form-label">Buyer Name</label>
+                        <input type="text" name="products[${rowIndex}][buyer_name]" class="form-control buyer-name-input" placeholder="Buyer (Optional)">
+                    </div>
+                    <div class="col-lg-1 col-md-6"><label class="form-label">Qty</label><input type="number" name="products[${rowIndex}][quantity]" class="form-control quantity-input" min="1" required></div>
                     <div class="col-lg-2 col-md-6"><label class="form-label">Unit Price</label><input type="number" name="products[${rowIndex}][unit_price]" class="form-control unit-price" value="${product ? product.price : '0'}" step="0.01" min="0" required></div>
-                    <div class="col-lg-2 col-md-6"><label class="form-label">Discount (%)</label><input type="number" name="products[${rowIndex}][discount]" class="form-control discount-input" value="0" step="0.01" min="0" max="100"></div>
+                    <div class="col-lg-1 col-md-6"><label class="form-label">Disc %</label><input type="number" name="products[${rowIndex}][discount]" class="form-control discount-input" value="0" step="0.01" min="0" max="100"></div>
                     <div class="col-lg-3 col-md-12">
                         <div class="cgst-sgst-group">
                             <div class="row g-2">
@@ -183,6 +237,8 @@
                                 <div class="col-6"><label class="form-label">SGST (%)</label><input type="number" name="products[${rowIndex}][sgst]" class="form-control sgst-input" value="9"></div>
                             </div>
                         </div>
+                        
+                        <!-- THE FIX: The inline style="display:none;" has been REMOVED from this div -->
                         <div class="igst-group">
                             <label class="form-label">IGST (%)</label>
                             <input type="number" name="products[${rowIndex}][igst]" class="form-control igst-input" value="18">
@@ -191,10 +247,13 @@
                 </div>`;
             productsContainer.appendChild(newRow);
             rowCount++;
+            // This function will now correctly show/hide the fields using only the CSS classes
+            toggleGstFields();
         }
 
         function calculateTotals() {
-            let subtotal = 0, totalTax = 0;
+            let subtotal = 0,
+                totalTax = 0;
             document.querySelectorAll('.product-row').forEach(row => {
                 const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
                 const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
@@ -227,11 +286,15 @@
                 purchaseOrderForm.classList.add('gst-mode-cgst');
             }
             document.querySelectorAll('.product-row').forEach(row => {
+                const igstInput = row.querySelector('.igst-input');
+                const cgstInput = row.querySelector('.cgst-input');
+                const sgstInput = row.querySelector('.sgst-input');
+
                 if (selectedType === 'igst') {
-                    row.querySelector('.cgst-input').value = 0;
-                    row.querySelector('.sgst-input').value = 0;
+                    if (cgstInput) cgstInput.value = 0;
+                    if (sgstInput) sgstInput.value = 0;
                 } else {
-                    row.querySelector('.igst-input').value = 0;
+                    if (igstInput) igstInput.value = 0;
                 }
             });
             calculateTotals();
@@ -240,7 +303,10 @@
         partySearchInput.addEventListener('input', function() {
             const query = this.value.toLowerCase();
             partySuggestionsBox.innerHTML = '';
-            if (query.length < 1) { partySuggestionsBox.style.display = 'none'; return; }
+            if (query.length < 1) {
+                partySuggestionsBox.style.display = 'none';
+                return;
+            }
             const filtered = parties.filter(p => p.name.toLowerCase().includes(query));
             filtered.forEach(party => {
                 const item = document.createElement('button');
@@ -265,7 +331,10 @@
                 const suggestions = row.querySelector('.product-suggestions');
                 const query = target.value.toLowerCase();
                 suggestions.innerHTML = '';
-                if (query.length < 1) { suggestions.style.display = 'none'; return; }
+                if (query.length < 1) {
+                    suggestions.style.display = 'none';
+                    return;
+                }
                 const availableProducts = products.filter(p => p.name.toLowerCase().includes(query) && (!selectedProductIds.has(p.id) || p.id == row.dataset.productId));
                 availableProducts.forEach(product => {
                     const item = document.createElement('button');
@@ -274,7 +343,7 @@
                     item.textContent = product.name;
                     item.addEventListener('click', () => {
                         const oldProductId = parseInt(row.dataset.productId);
-                        if(oldProductId) selectedProductIds.delete(oldProductId);
+                        if (oldProductId) selectedProductIds.delete(oldProductId);
                         target.value = product.name;
                         row.querySelector('.product-id-input').value = product.id;
                         row.querySelector('.unit-price').value = product.price || '';
@@ -290,7 +359,7 @@
                 calculateTotals();
             }
         });
-        
+
         productsContainer.addEventListener('click', e => {
             if (e.target.closest('.remove-row-btn')) {
                 const row = e.target.closest('.remove-row-btn').closest('.product-row');
@@ -310,30 +379,33 @@
 
         addProductBtn.addEventListener('click', () => {
             addProductRow();
-            toggleGstFields();
         });
-        
+
         gstTypeSelector.addEventListener('change', toggleGstFields);
-        
+
         addProductForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             fetch("{{ route('products.store') }}", {
-                method: 'POST', body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    products.push(data.product);
-                    this.reset();
-                    modalInstance.hide();
-                    addProductRow(data.product);
-                    Swal.fire('Success', 'Product added successfully!', 'success');
-                } else {
-                    // Handle errors
-                }
-            }).catch(error => Swal.fire('Error', 'Could not add product.', 'error'));
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        products.push(data.product);
+                        this.reset();
+                        modalInstance.hide();
+                        addProductRow(data.product);
+                        Swal.fire('Success', 'Product added successfully!', 'success');
+                    } else {
+                        Swal.fire('Error', 'Could not add product. Please check the fields.', 'error');
+                    }
+                }).catch(error => Swal.fire('Error', 'An unexpected error occurred.', 'error'));
         });
 
         purchaseOrderForm.addEventListener('submit', function(e) {
@@ -341,32 +413,41 @@
             const submitButton = this.querySelector('button[type="submit"]');
             submitButton.disabled = true;
             submitButton.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Creating...`;
-            
+
             const formData = new FormData(this);
             fetch(this.action, {
-                method: 'POST', body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({ icon: 'success', title: 'Success!', text: data.message, timer: 2000, showConfirmButton: false })
-                    .then(() => window.location.href = "{{ route('purchase_orders.index') }}");
-                } else {
-                    let errorHtml = `<ul>${Object.values(data.errors || {}).map(e => `<li>${e[0]}</li>`).join('') || `<li>${data.message || 'Unknown error.'}</li>`}</ul>`;
-                    Swal.fire('Validation Failed', errorHtml, 'error');
-                }
-            })
-            .catch(error => Swal.fire('Error', 'Could not create purchase order.', 'error'))
-            .finally(() => {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Create Purchase Order';
-            });
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                                icon: 'success',
+                                title: 'Success!',
+                                text: data.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            })
+                            .then(() => window.location.href = "{{ route('purchase_orders.index') }}");
+                    } else {
+                        let errorHtml = `<ul>${Object.values(data.errors || {}).map(e => `<li>${e[0]}</li>`).join('') || `<li>${data.message || 'Unknown error.'}</li>`}</ul>`;
+                        Swal.fire('Validation Failed', errorHtml, 'error');
+                    }
+                })
+                .catch(error => Swal.fire('Error', 'Could not create purchase order.', 'error'))
+                .finally(() => {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Create Purchase Order';
+                });
         });
 
         addProductRow();
-        toggleGstFields();
     });
-    </script>
+</script>
 </body>
 @include('layout.footer')

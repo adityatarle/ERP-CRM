@@ -58,8 +58,6 @@ class DeliveryNoteController extends Controller
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'ref_no' => 'nullable|string|max:255',
-            'purchase_number' => 'required|string|max:255',
-            'purchase_date' => 'required|date',
             'delivery_date' => 'required|date',
             // GST fields can be nullable for a DN, as it's non-financial
             'gst_type' => 'nullable|in:CGST,IGST',
@@ -95,14 +93,7 @@ class DeliveryNoteController extends Controller
                 'delivery_note_number' => 'DN-' . strtoupper(uniqid()),
                 'customer_id' => $validated['customer_id'],
                 'ref_no' => $validated['ref_no'],
-                'purchase_number' => $validated['purchase_number'],
-                'purchase_date' => $validated['purchase_date'],
                 'delivery_date' => $validated['delivery_date'],
-                'gst_type' => $validated['gst_type'] ?? null,
-                'cgst' => $validated['gst_type'] === 'CGST' ? $validated['cgst'] : null,
-                'sgst' => $validated['gst_type'] === 'CGST' ? $validated['sgst'] : null,
-                'igst' => $validated['gst_type'] === 'IGST' ? $validated['igst'] : null,
-                'description' => $validated['description'],
                 'notes' => $validated['notes'],
                 'contact_person' => $validated['contact_person'],
                 'is_invoiced' => false,
