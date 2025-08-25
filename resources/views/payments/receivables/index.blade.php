@@ -1,6 +1,7 @@
 @include('layout.header')
 
 <style>
+    /* Page & Card Styling */
     body {
         background-color: #f4f7f9;
     }
@@ -9,7 +10,7 @@
         min-height: 100vh;
     }
 
-    .card-header h5 {
+    .card-header h1 {
         font-size: 1.25rem;
         font-weight: 600;
     }
@@ -33,11 +34,46 @@
         border-radius: .375rem;
     }
 
-    .badge {
+    .status-badge {
         padding: 0.4em 0.7em;
         font-size: 0.8rem;
         font-weight: 500;
         border-radius: 50rem;
+    }
+
+    .status-paid {
+        background-color: rgba(25, 135, 84, 0.1);
+        color: #0f5132;
+    }
+
+    .status-pending {
+        background-color: rgba(255, 193, 7, 0.1);
+        color: #664d03;
+    }
+
+    .status-unpaid {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: #495057;
+    }
+
+    .btn-group .btn {
+        margin-right: 0.25rem;
+    }
+
+    .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+
+    .table th {
+        font-weight: 600;
+        color: #495057;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
     }
 </style>
 
@@ -96,76 +132,71 @@
                 </div>
 
                 <!-- Receivables Table -->
-                <!-- In resources/views/payments/receivables/index.blade.php -->
-
-                <!-- Receivables Table -->
                 <div class="table-responsive">
-                    <table class="table table-bordered table-hover align-middle">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Invoice #</th>
+                                <th>Invoice Number</th>
                                 <th>Customer</th>
-                                <th class="text-end">Amount Due</th>
-                                <th class="text-center">Credit Days</th>
-                                <th>Due Status</th>
-                                <th>Payment Status</th>
+                                <th>Issue Date</th>
+                                <th>Due Date</th>
+                                <th>Total Amount</th>
+                                <th>Amount Paid</th>
+                                <th>Remaining</th>
+                                <th>Payment Count</th>
+                                <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($invoices as $invoice)
-                            @php
-                            // --- START OF NEW LOGIC ---
-                            $creditDays = 'N/A';
-                            $dueStatusBadge = '<span class="badge bg-secondary">N/A</span>';
-
-                            if ($invoice->issue_date && $invoice->due_date) {
-                            // Calculate Credit Days
-                            $issueDate = \Carbon\Carbon::parse($invoice->issue_date);
-                            $dueDate = \Carbon\Carbon::parse($invoice->due_date);
-                            $creditDays = $issueDate->diffInDays($dueDate);
-
-                            // Determine Due Status
-                            if ($invoice->payment_status == 'paid') {
-                            $dueStatusBadge = '<span class="badge bg-light text-dark">Paid</span>';
-                            } elseif (\Carbon\Carbon::today()->isSameDay($dueDate)) {
-                            $dueStatusBadge = '<span class="badge bg-warning text-dark">Due Today</span>';
-                            } elseif (\Carbon\Carbon::today()->gt($dueDate)) {
-                            $daysOverdue = \Carbon\Carbon::today()->diffInDays($dueDate);
-                            $dueStatusBadge = '<span class="badge bg-danger">'. $daysOverdue .' '. \Str::plural('day', $daysOverdue) .' overdue</span>';
-                            } else {
-                            $daysRemaining = \Carbon\Carbon::today()->diffInDays($dueDate);
-                            $dueStatusBadge = '<span class="badge bg-success">'. $daysRemaining .' '. \Str::plural('day', $daysRemaining) .' remaining</span>';
-                            }
-                            }
-                            // --- END OF NEW LOGIC ---
-                            @endphp
-                            <tr>
-                                <td class="text-primary fw-bold">
-                                    <a href="{{ route('invoices.show', $invoice->id) }}">{{ $invoice->invoice_number }}</a>
-                                </td>
-                                <td>{{ $invoice->customer->name ?? 'N/A' }}</td>
-                                <td class="text-end">₹{{ number_format($invoice->amount_due, 2) }}</td>
-
-                                {{-- Display the calculated credit days --}}
-                                <td class="text-center">{{ $creditDays }}</td>
-
-                                {{-- Display the calculated due status of badge --}}
-                                <td>{!! $dueStatusBadge !!}</td>
-
-                                <td>
-                                    @if ($invoice->payment_status == 'paid')
-                                    <span class="badge bg-success">Paid</span>
-                                    @elseif ($invoice->payment_status == 'partially_paid')
-                                    <span class="badge bg-info text-dark">Partially Paid</span>
-                                    @else
-                                    <span class="badge bg-warning text-dark">Unpaid</span>
-                                    @endif
-                                </td>
-                            </tr>
+                                <tr>
+                                    <td>
+                                        <strong>{{ $invoice->invoice_number ?? 'N/A' }}</strong>
+                                    </td>
+                                    <td>{{ $invoice->customer->name ?? 'N/A' }}</td>
+                                    <td>{{ $invoice->issue_date ? \Carbon\Carbon::parse($invoice->issue_date)->format('d M, Y') : 'N/A' }}</td>
+                                    <td>{{ $invoice->due_date ? \Carbon\Carbon::parse($invoice->due_date)->format('d M, Y') : 'N/A' }}</td>
+                                    <td class="text-end">₹{{ number_format($invoice->total, 2) }}</td>
+                                    <td class="text-end">₹{{ number_format($invoice->amount_paid, 2) }}</td>
+                                    <td class="text-end">₹{{ number_format($invoice->remaining_amount, 2) }}</td>
+                                    <td class="text-center">
+                                        @if($invoice->payment_count > 0)
+                                            <span class="badge bg-info">{{ $invoice->payment_count }}</span>
+                                        @else
+                                            <span class="badge bg-secondary">0</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($invoice->payment_status === 'paid')
+                                            <span class="status-badge status-paid">Paid</span>
+                                        @elseif($invoice->payment_status === 'partially_paid')
+                                            <span class="status-badge status-pending">Partially Paid</span>
+                                        @else
+                                            <span class="status-badge status-unpaid">Unpaid</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            @if($invoice->payment_count > 0)
+                                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                                        onclick="showPaymentDetails({{ $invoice->id }}, '{{ $invoice->invoice_number ?? 'N/A' }}')">
+                                                    <i class="fa fa-eye me-1"></i>View Payments
+                                                </button>
+                                            @endif
+                                            @if($invoice->remaining_amount > 0.01)
+                                                <button type="button" class="btn btn-sm btn-primary" 
+                                                        onclick="recordPayment({{ $invoice->id }}, '{{ $invoice->customer->name ?? 'N/A' }}', {{ $invoice->remaining_amount }})">
+                                                    <i class="fa fa-plus me-1"></i>Record Payment
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
                             @empty
-                            <tr>
-                                <td colspan="6" class="text-center p-4">No outstanding invoices found.</td>
-                            </tr>
+                                <tr>
+                                    <td colspan="10" class="text-center p-4">No invoice entries found.</td>
+                                </tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -292,6 +323,26 @@
                         <button type="submit" class="btn btn-primary" id="submit-payment-btn" disabled>Submit Payment</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Details Modal -->
+<div class="modal fade" id="paymentDetailsModal" tabindex="-1" aria-labelledby="paymentDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="paymentDetailsModalLabel">Payment Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -515,6 +566,101 @@
             }
             updateSelectedInvoices();
         }
+
+        // Function to show payment details
+        window.showPaymentDetails = function(invoiceId, invoiceNumber) {
+            const modal = new bootstrap.Modal(document.getElementById('paymentDetailsModal'));
+            const contentDiv = document.getElementById('paymentDetailsContent');
+            const title = document.getElementById('paymentDetailsModalLabel');
+            
+            title.textContent = `Payment Details - ${invoiceNumber}`;
+            contentDiv.innerHTML = '<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x"></i><p>Loading payment details...</p></div>';
+            
+            modal.show();
+            
+            // Fetch payment details via AJAX
+            fetch(`/receivables/${invoiceId}/payments`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let html = `
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Invoice Number:</strong> ${data.invoice.invoice_number || 'N/A'}<br>
+                                    <strong>Customer:</strong> ${data.invoice.customer.name || 'N/A'}<br>
+                                    <strong>Total Amount:</strong> ₹${parseFloat(data.invoice.total).toFixed(2)}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Amount Paid:</strong> ₹${parseFloat(data.invoice.amount_paid).toFixed(2)}<br>
+                                    <strong>Remaining:</strong> ₹${parseFloat(data.invoice.remaining_amount).toFixed(2)}<br>
+                                    <strong>Payment Count:</strong> ${data.invoice.payment_count}
+                                </div>
+                            </div>
+                            <hr>
+                            <h6>Payment Breakdown:</h6>
+                        `;
+                        
+                        if (data.payments && data.payments.length > 0) {
+                            html += `
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>TDS</th>
+                                                <th>Bank/Method</th>
+                                                <th>Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            
+                            data.payments.forEach(payment => {
+                                html += `
+                                    <tr>
+                                        <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
+                                        <td class="text-end">₹${parseFloat(payment.amount).toFixed(2)}</td>
+                                        <td class="text-end">₹${parseFloat(payment.tds_amount || 0).toFixed(2)}</td>
+                                        <td>${payment.bank_name || 'N/A'}</td>
+                                        <td>${payment.notes || 'N/A'}</td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        } else {
+                            html += '<p class="text-muted">No payments recorded yet.</p>';
+                        }
+                        
+                        contentDiv.innerHTML = html;
+                    } else {
+                        contentDiv.innerHTML = '<div class="alert alert-danger">Error loading payment details.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    contentDiv.innerHTML = '<div class="alert alert-danger">Error loading payment details.</div>';
+                });
+        };
+
+        // Function to record payment for a specific invoice
+        window.recordPayment = function(invoiceId, customerName, remainingAmount) {
+            // Set the customer and amount in the payment modal
+            document.getElementById('modal_customer_id').value = customerName;
+            document.getElementById('modal_amount').value = remainingAmount;
+            
+            // Trigger the modal
+            const modal = new bootstrap.Modal(document.getElementById('receivablePaymentModal'));
+            modal.show();
+            
+            // Fetch invoices for this customer
+            fetchInvoices();
+        };
     });
 </script>
 @include('layout.footer')

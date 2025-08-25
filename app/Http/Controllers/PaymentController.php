@@ -37,8 +37,12 @@ class PaymentController extends Controller
         $invoice_date_from = $request->input('invoice_date_from');
         $invoice_date_to = $request->input('invoice_date_to');
 
-        // Start building the query
-        $query = Payable::with(['purchaseEntry', 'party'])->where('is_paid', false);
+        // Start building the query - now we'll group by purchase entry
+        $query = Payable::with(['purchaseEntry', 'party', 'payments'])
+                        ->where('is_paid', false)
+                        ->orWhereHas('payments', function($q) {
+                            $q->where('type', 'payable');
+                        });
 
         // Apply party name filter if provided
         if ($party_search) {
@@ -210,8 +214,16 @@ class PaymentController extends Controller
 
     public function paymentsList()
     {
-        $payments = Payment::with('purchaseEntry', 'party')->where('type', 'payable')->orderBy('payment_date', 'desc')->get();
-        return view('payments.payables.list', compact('payments'));
+        // Return payables grouped by purchase entry instead of individual payments
+        $payables = Payable::with(['purchaseEntry', 'party', 'payments'])
+            ->whereHas('payments', function($q) {
+                $q->where('type', 'payable');
+            })
+            ->orWhere('is_paid', false)
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        return view('payments.payables.list', compact('payables'));
     }
 
 
@@ -224,9 +236,9 @@ class PaymentController extends Controller
         'customer_search' => 'nullable|string|max:255',
     ]);
 
-    // THE FIX: Eager load the customer relationship
-    $query = Invoice::with('customer')
-        ->whereIn('payment_status', ['unpaid', 'partially_paid']);
+    // Modified query to show all invoices with payment summaries
+    $query = Invoice::with(['customer', 'payments'])
+        ->whereIn('payment_status', ['unpaid', 'partially_paid', 'paid']);
 
     if (!empty($validated['customer_search'])) {
         $query->whereHas('customer', function ($q) use ($validated) {
@@ -357,54 +369,14 @@ class PaymentController extends Controller
 
    public function receivablesPaymentsList(Request $request)
 {
-    // --- Step 1: Get user input with defaults ---
-    $tdsFilter = $request->input('tds_filter', 'all');
-    $sortBy = $request->input('sort_by', 'payment_date');
-    $sortDir = $request->input('sort_dir', 'desc');
+    // Modified to return invoices grouped by invoice instead of individual payments
+    $query = Invoice::with(['customer', 'payments'])
+        ->whereIn('payment_status', ['unpaid', 'partially_paid', 'paid'])
+        ->orderBy('created_at', 'desc');
 
-    // --- Step 2: Define allowed columns for sorting ---
-    $allowedSortColumns = [
-        'invoice_number' => 'invoices.invoice_number',
-        'customer_name'  => 'customers.name',
-        'amount'         => 'payments.amount',
-        'tds_amount'     => 'payments.tds_amount',
-        'payment_date'   => 'payments.payment_date',
-        'due_date'       => 'invoices.due_date', // <-- ADD THIS
-        'bank_name'      => 'payments.bank_name',
-        'notes'          => 'payments.notes',
-    ];
+    $invoices = $query->get();
 
-    $sortColumn = $allowedSortColumns[$sortBy] ?? 'payments.payment_date';
-    $sortDir = in_array(strtolower($sortDir), ['asc', 'desc']) ? $sortDir : 'desc';
-
-    // --- Step 3: Build the Eloquent query ---
-    $query = Payment::query()
-        ->where('type', 'receivable')
-        ->with(['invoice', 'customer']); // Eager load relationships
-
-    // --- Step 4: Apply Joins ONLY if sorting by a related table's column ---
-    if (in_array($sortBy, ['invoice_number', 'customer_name', 'due_date'])) { // <-- ADD due_date
-        $query->leftJoin('invoices', 'payments.invoice_id', '=', 'invoices.id')
-              ->leftJoin('customers', 'payments.customer_id', '=', 'customers.id')
-              ->select('payments.*', 'invoices.due_date', 'invoices.issue_date'); // <-- ADD issue_date and due_date to select
-    }
-
-    // --- Step 5: Apply TDS filter ---
-    $query->when($tdsFilter === 'with_tds', function ($q) {
-        $q->where('payments.tds_amount', '>', 0);
-    })->when($tdsFilter === 'without_tds', function ($q) {
-        $q->where(function ($subQuery) {
-            $subQuery->whereNull('payments.tds_amount')->orWhere('payments.tds_amount', '=', 0);
-        });
-    });
-
-    // --- Step 6: Apply sorting ---
-    $query->orderBy($sortColumn, $sortDir);
-
-    $payments = $query->get();
-
-    // --- Step 7: Pass data to the view ---
-    return view('payments.receivables.list', compact('payments', 'tdsFilter', 'sortBy', 'sortDir'));
+    return view('payments.receivables.list', compact('invoices'));
 }
 
 // ...
@@ -459,6 +431,50 @@ class PaymentController extends Controller
         });
         
         return response()->json($data);
+    }
+
+    /**
+     * Get payment details for a specific payable entry
+     */
+    public function getPayablePayments($payableId)
+    {
+        try {
+            $payable = Payable::with(['purchaseEntry', 'party', 'payments'])
+                ->findOrFail($payableId);
+            
+            return response()->json([
+                'success' => true,
+                'payable' => $payable,
+                'payments' => $payable->payments()->orderBy('payment_date', 'desc')->get()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching payment details'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get payment details for a specific invoice entry
+     */
+    public function getInvoicePayments($invoiceId)
+    {
+        try {
+            $invoice = Invoice::with(['customer', 'payments'])
+                ->findOrFail($invoiceId);
+            
+            return response()->json([
+                'success' => true,
+                'invoice' => $invoice,
+                'payments' => $invoice->payments()->orderBy('payment_date', 'desc')->get()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching payment details'
+            ], 500);
+        }
     }
 
 }

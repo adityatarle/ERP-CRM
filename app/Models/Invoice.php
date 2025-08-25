@@ -70,6 +70,8 @@ class Invoice extends Model
      */
     protected $appends = [
         'amount_due',
+        'payment_count',
+        'remaining_amount'
     ];
 
     /**
@@ -80,6 +82,22 @@ class Invoice extends Model
     public function getAmountDueAttribute(): float
     {
         return (float) $this->total - (float) $this->amount_paid;
+    }
+
+    /**
+     * Count total payments made against this invoice
+     */
+    public function getPaymentCountAttribute(): int
+    {
+        return $this->payments()->count();
+    }
+
+    /**
+     * Calculate remaining amount (alias for amount_due for consistency)
+     */
+    public function getRemainingAmountAttribute(): float
+    {
+        return $this->amount_due;
     }
 
     // --- RELATIONSHIPS ---
