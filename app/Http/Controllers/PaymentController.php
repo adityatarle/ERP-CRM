@@ -215,26 +215,13 @@ class PaymentController extends Controller
     public function paymentsList()
     {
         // Return payables grouped by purchase entry instead of individual payments
-        try {
-            $payables = Payable::with(['purchaseEntry', 'party', 'payments'])
-                ->orderBy('created_at', 'desc')
-                ->get();
-            
-            // Debug: Log the count and some sample data
-            \Log::info('Payables count: ' . $payables->count());
-            if ($payables->count() > 0) {
-                \Log::info('Sample payable: ', [
-                    'id' => $payables->first()->id,
-                    'amount' => $payables->first()->amount,
-                    'total_paid' => $payables->first()->total_paid ?? 'N/A',
-                    'payment_count' => $payables->first()->payment_count ?? 'N/A',
-                    'payments_count' => $payables->first()->payments->count()
-                ]);
-            }
-        } catch (\Exception $e) {
-            \Log::error('Error in paymentsList: ' . $e->getMessage());
-            $payables = collect(); // Return empty collection on error
-        }
+        $payables = Payable::with(['purchaseEntry', 'party', 'payments'])
+            ->whereHas('payments', function($q) {
+                $q->where('type', 'payable');
+            })
+            ->orWhere('is_paid', false)
+            ->orderBy('created_at', 'desc')
+            ->get();
             
         return view('payments.payables.list', compact('payables'));
     }
@@ -488,54 +475,6 @@ class PaymentController extends Controller
                 'message' => 'Error fetching payment details'
             ], 500);
         }
-    }
-
-    /**
-     * Test method to debug payables data
-     */
-    public function testPayables()
-    {
-        // Test 1: Check payables
-        $payables = Payable::with(['purchaseEntry', 'party'])->get();
-        
-        // Test 2: Check payments
-        $payments = Payment::where('type', 'payable')->get();
-        
-        // Test 3: Check database structure
-        $paymentColumns = \Schema::getColumnListing('payments');
-        
-        $data = [
-            'total_payables' => $payables->count(),
-            'total_payments' => $payments->count(),
-            'payment_columns' => $paymentColumns,
-            'sample_payable' => null,
-            'sample_payment' => null
-        ];
-        
-        if ($payables->count() > 0) {
-            $first = $payables->first();
-            $data['sample_payable'] = [
-                'id' => $first->id,
-                'amount' => $first->amount,
-                'purchase_entry_id' => $first->purchase_entry_id,
-                'purchase_entry' => $first->purchaseEntry ? $first->purchaseEntry->purchase_number : 'N/A',
-                'party' => $first->party ? $first->party->name : 'N/A'
-            ];
-        }
-        
-        if ($payments->count() > 0) {
-            $first = $payments->first();
-            $data['sample_payment'] = [
-                'id' => $first->id,
-                'type' => $first->type,
-                'amount' => $first->amount,
-                'purchase_entry_id' => $first->purchase_entry_id,
-                'party_id' => $first->party_id,
-                'invoice_id' => $first->invoice_id ?? 'N/A'
-            ];
-        }
-        
-        return response()->json($data);
     }
 
 }
