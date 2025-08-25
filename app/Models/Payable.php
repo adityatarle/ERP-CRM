@@ -36,7 +36,8 @@ class Payable extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class, 'purchase_entry_id', 'purchase_entry_id')
-                    ->where('type', 'payable');
+                    ->where('type', 'payable')
+                    ->orderBy('payment_date', 'desc');
     }
 
     /**
