@@ -144,6 +144,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/payables', [PaymentController::class, 'store'])->name('payments.payables.store');
     Route::get('/payments', [PaymentController::class, 'paymentsList'])->name('payments.payables.list');
     Route::get('/payables/get-purchase-entries-by-party', [PaymentController::class, 'getPurchaseEntriesByParty'])->name('payables.getPurchaseEntriesByParty');
+    Route::get('/payables/{payable}/payments', [PaymentController::class, 'getPayablePayments'])->name('payables.payments');
 
     Route::get('/receivables', [PaymentController::class, 'receivables'])->name('receivables');
     Route::get('/receivables/export', [PaymentController::class, 'exportReceivables'])->name('receivables.export');
@@ -151,6 +152,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/receivables', [PaymentController::class, 'storeReceivable'])->name('receivables.store');
     Route::get('/receivables/list', [PaymentController::class, 'receivablesPaymentsList'])->name('receivables.paymentsList');
     Route::get('/receivables/get-invoices-by-customer', [PaymentController::class, 'getInvoicesByCustomer'])->name('receivables.getInvoicesByCustomer');
+    Route::get('/receivables/{invoice}/payments', [PaymentController::class, 'getInvoicePayments'])->name('receivables.payments');
 
     Route::get('/purchase-entries', [PurchaseEntryController::class, 'index'])->name('purchase_entries.index');
     Route::get('/purchase-entries/create', [PurchaseEntryController::class, 'create'])->name('purchase_entries.create');

@@ -50,6 +50,31 @@
         background-color: rgba(255, 193, 7, 0.1);
         color: #664d03;
     }
+
+    .status-unpaid {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: #495057;
+    }
+
+    .btn-group .btn {
+        margin-right: 0.25rem;
+    }
+
+    .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+
+    .table th {
+        font-weight: 600;
+        color: #495057;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
 </style>
 
 <body class="act-payments">
@@ -129,48 +154,70 @@
 
                     <!-- Payables Table -->
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <th class="ps-3">Purchase #</th>
+                                    <th>Purchase Number</th>
                                     <th>Party</th>
-                                    <th>Purchase Date</th>
-                                    <th>Invoice #</th>
+                                    <th>Invoice Number</th>
                                     <th>Invoice Date</th>
-                                    <th class="text-end">Amount</th>
-                                    <th class="text-center">Status</th>
+                                    <th>Total Amount</th>
+                                    <th>Amount Paid</th>
+                                    <th>Remaining</th>
+                                    <th>Payment Count</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($payables as $payable)
-                                <tr>
-                                    {{-- THE ONLY CHANGE IS HERE --}}
-                                    <td class="ps-3 fw-bold text-primary">
-                                        @if($payable->purchaseEntry)
-                                        <a href="{{ route('purchase_entries.show', $payable->purchaseEntry->id) }}" title="View Purchase Entry Details">
-                                            {{ $payable->purchaseEntry->purchase_number }}
-                                        </a>
-                                        @else
-                                        N/A
-                                        @endif
-                                    </td>
-                                    <td>{{ $payable->party->name ?? 'N/A' }}</td>
-                                    <td>{{ $payable->purchaseEntry ? \Carbon\Carbon::parse($payable->purchaseEntry->purchase_date)->format('d M, Y') : 'N/A' }}</td>
-                                    <td>{{ $payable->invoice_number ?? '-' }}</td>
-                                    <td>{{ $payable->invoice_date ? \Carbon\Carbon::parse($payable->invoice_date)->format('d M, Y') : '-' }}</td>
-                                    <td class="text-end">₹{{ number_format($payable->amount, 2) }}</td>
-                                    <td class="text-center">
-                                        @if($payable->is_paid)
-                                        <span class="status-badge status-paid">Paid</span>
-                                        @else
-                                        <span class="status-badge status-pending">Pending</span>
-                                        @endif
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td>
+                                            <strong>{{ $payable->purchaseEntry->purchase_number ?? 'N/A' }}</strong>
+                                        </td>
+                                        <td>{{ $payable->party->name ?? 'N/A' }}</td>
+                                        <td>{{ $payable->invoice_number ?? 'N/A' }}</td>
+                                        <td>{{ $payable->invoice_date ? \Carbon\Carbon::parse($payable->invoice_date)->format('d M, Y') : 'N/A' }}</td>
+                                        <td class="text-end">₹{{ number_format($payable->amount, 2) }}</td>
+                                        <td class="text-end">₹{{ number_format($payable->total_paid, 2) }}</td>
+                                        <td class="text-end">₹{{ number_format($payable->remaining_amount, 2) }}</td>
+                                        <td class="text-center">
+                                            @if($payable->payment_count > 0)
+                                                <span class="badge bg-info">{{ $payable->payment_count }}</span>
+                                            @else
+                                                <span class="badge bg-secondary">0</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($payable->payment_status === 'paid')
+                                                <span class="status-badge status-paid">Paid</span>
+                                            @elseif($payable->payment_status === 'partially_paid')
+                                                <span class="status-badge status-pending">Partially Paid</span>
+                                            @else
+                                                <span class="status-badge status-unpaid">Unpaid</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                @if($payable->payment_count > 0)
+                                                    <button type="button" class="btn btn-sm btn-outline-info" 
+                                                            onclick="showPaymentDetails({{ $payable->id }}, '{{ $payable->purchaseEntry->purchase_number ?? 'N/A' }}')">
+                                                        <i class="fa fa-eye me-1"></i>View Payments
+                                                    </button>
+                                                @endif
+                                                @if($payable->remaining_amount > 0.01)
+                                                    <button type="button" class="btn btn-sm btn-primary" 
+                                                            onclick="recordPayment({{ $payable->id }}, '{{ $payable->party->name ?? 'N/A' }}', {{ $payable->remaining_amount }})">
+                                                        <i class="fa fa-plus me-1"></i>Record Payment
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
                                 @empty
-                                <tr>
-                                    <td colspan="7" class="text-center p-4">No payables found.</td>
-                                </tr>
+                                    <tr>
+                                        <td colspan="10" class="text-center p-4">No payable entries found.</td>
+                                    </tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -276,6 +323,26 @@
                             <button type="submit" class="btn btn-primary" id="submit-payment-btn" disabled>Submit Payment</button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Details Modal -->
+    <div class="modal fade" id="paymentDetailsModal" tabindex="-1" aria-labelledby="paymentDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="paymentDetailsModalLabel">Payment Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="paymentDetailsContent">
+                        <!-- Content will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -503,7 +570,7 @@
             if (startDate) params.append('start_date', startDate);
             if (endDate) params.append('end_date', endDate);
             if (partySearch) params.append('party_search', partySearch);
-            if (invoiceSearch) params.append('invoice_search', invoiceSearch);
+            if (invoiceSearch) params.append('party_search', invoiceSearch);
             if (invoiceDateFrom) params.append('invoice_date_from', invoiceDateFrom);
             if (invoiceDateTo) params.append('invoice_date_to', invoiceDateTo);
             if (!params.toString()) {
@@ -512,6 +579,99 @@
             }
             window.location.href = `${exportUrl}?${params.toString()}`;
         }
+
+        // Function to show payment details
+        window.showPaymentDetails = function(payableId, purchaseNumber) {
+            const modal = new bootstrap.Modal(document.getElementById('paymentDetailsModal'));
+            const contentDiv = document.getElementById('paymentDetailsContent');
+            const title = document.getElementById('paymentDetailsModalLabel');
+            
+            title.textContent = `Payment Details - ${purchaseNumber}`;
+            contentDiv.innerHTML = '<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x"></i><p>Loading payment details...</p></div>';
+            
+            modal.show();
+            
+            // Fetch payment details via AJAX
+            fetch(`/payables/${payableId}/payments`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let html = `
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Purchase Number:</strong> ${data.payable.purchaseEntry.purchase_number || 'N/A'}<br>
+                                    <strong>Party:</strong> ${data.payable.party.name || 'N/A'}<br>
+                                    <strong>Total Amount:</strong> ₹${parseFloat(data.payable.amount).toFixed(2)}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Amount Paid:</strong> ₹${parseFloat(data.payable.total_paid).toFixed(2)}<br>
+                                    <strong>Remaining:</strong> ₹${parseFloat(data.payable.remaining_amount).toFixed(2)}<br>
+                                    <strong>Payment Count:</strong> ${data.payable.payment_count}
+                                </div>
+                            </div>
+                            <hr>
+                            <h6>Payment Breakdown:</h6>
+                        `;
+                        
+                        if (data.payments && data.payments.length > 0) {
+                            html += `
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Amount</th>
+                                                <th>Bank/Method</th>
+                                                <th>Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            
+                            data.payments.forEach(payment => {
+                                html += `
+                                    <tr>
+                                        <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
+                                        <td class="text-end">₹${parseFloat(payment.amount).toFixed(2)}</td>
+                                        <td>${payment.bank_name || 'N/A'}</td>
+                                        <td>${payment.notes || 'N/A'}</td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        } else {
+                            html += '<p class="text-muted">No payments recorded yet.</p>';
+                        }
+                        
+                        contentDiv.innerHTML = html;
+                    } else {
+                        contentDiv.innerHTML = '<div class="alert alert-danger">Error loading payment details.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    contentDiv.innerHTML = '<div class="alert alert-danger">Error loading payment details.</div>';
+                });
+        };
+
+        // Function to record payment for a specific payable
+        window.recordPayment = function(payableId, partyName, remainingAmount) {
+            // Set the party and amount in the payment modal
+            document.getElementById('modal_party_id').value = payableId;
+            document.getElementById('amount').value = remainingAmount;
+            
+            // Trigger the modal
+            const modal = new bootstrap.Modal(document.getElementById('payablePaymentModal'));
+            modal.show();
+            
+            // Fetch purchase entries for this party
+            fetchPurchaseEntries();
+        };
     });
 </script>
 </body>
