@@ -25,6 +25,7 @@
                                     <th>Payment Count</th>
                                     <th>Last Payment Date</th>
                                     <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -46,8 +47,9 @@
                                             @endif
                                         </td>
                                         <td>
-                                            @if($payable->payments->count() > 0)
-                                                {{ \Carbon\Carbon::parse($payable->payments->first()->payment_date)->format('d M, Y') }}
+                                            @php $lastPayment = $payable->payments->sortByDesc('payment_date')->first(); @endphp
+                                            @if($lastPayment)
+                                                {{ \Carbon\Carbon::parse($lastPayment->payment_date)->format('d M, Y') }}
                                             @else
                                                 N/A
                                             @endif
@@ -61,10 +63,51 @@
                                                 <span class="badge bg-secondary">Unpaid</span>
                                             @endif
                                         </td>
+                                        <td class="text-end">
+                                            @if($payable->payments->count() > 1)
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#payments-{{ $payable->id }}" aria-expanded="false" aria-controls="payments-{{ $payable->id }}">
+                                                    View more
+                                                </button>
+                                            @elseif($payable->payments->count() === 1)
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#payments-{{ $payable->id }}" aria-expanded="false" aria-controls="payments-{{ $payable->id }}">
+                                                    View payment
+                                                </button>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
                                     </tr>
+                                    @if($payable->payments->count() > 0)
+                                    <tr class="collapse" id="payments-{{ $payable->id }}">
+                                        <td colspan="10">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-bordered mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Date</th>
+                                                            <th class="text-end">Amount</th>
+                                                            <th>Bank/Method</th>
+                                                            <th>Notes</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($payable->payments->sortByDesc('payment_date') as $payment)
+                                                        <tr>
+                                                            <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('d M, Y') }}</td>
+                                                            <td class="text-end">₹{{ number_format($payment->amount, 2) }}</td>
+                                                            <td>{{ $payment->bank_name ?? 'N/A' }}</td>
+                                                            <td>{{ $payment->notes ?? 'N/A' }}</td>
+                                                        </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endif
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="text-center p-4">No payment entries found.</td>
+                                        <td colspan="10" class="text-center p-4">No payment entries found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
