@@ -226,6 +226,20 @@ class PaymentController extends Controller
         return view('payments.payables.list', compact('payables'));
     }
 
+    /**
+     * Show a dedicated details page for a payable entry
+     */
+    public function showPayableDetails(Payable $payable)
+    {
+        $payable->load(['purchaseEntry', 'party', 'payments' => function($q) {
+            $q->orderBy('payment_date', 'desc');
+        }]);
+
+        return view('payments.payables.show', [
+            'payable' => $payable,
+        ]);
+    }
+
 
 
  public function receivables(Request $request)
