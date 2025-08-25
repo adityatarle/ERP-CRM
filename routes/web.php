@@ -145,7 +145,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments', [PaymentController::class, 'paymentsList'])->name('payments.payables.list');
     Route::get('/payables/get-purchase-entries-by-party', [PaymentController::class, 'getPurchaseEntriesByParty'])->name('payables.getPurchaseEntriesByParty');
     Route::get('/payables/{payable}/payments', [PaymentController::class, 'getPayablePayments'])->name('payables.payments');
-    Route::get('/test-payables', [PaymentController::class, 'testPayables'])->name('test.payables');
 
     Route::get('/receivables', [PaymentController::class, 'receivables'])->name('receivables');
     Route::get('/receivables/export', [PaymentController::class, 'exportReceivables'])->name('receivables.export');
