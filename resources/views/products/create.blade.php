@@ -101,6 +101,10 @@
                             </div>
                             @error('gst')<div class="text-danger mt-1 small">{{ $message }}</div>@enderror
                         </div>
+                        <div class="col-md-6">
+                            <label for="price" class="form-label">Price (₹)</label>
+                            <input type="number" name="price" id="price" class="form-control" value="{{ old('price', 0) }}" step="0.01" min="0" required>
+                        </div>
                         <div class="col-md-4">
                             <div class="form-check form-switch mb-2">
                                 <input class="form-check-input" type="checkbox" name="is_taxable" id="is_taxable" value="1" {{ old('is_taxable', true) ? 'checked' : '' }}>

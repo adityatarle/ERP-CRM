@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PurchaseEntry extends Model
 {
     protected $fillable = ['purchase_number', 'purchase_date', 'invoice_number', 'invoice_date', 'party_id', 'purchase_order_id','note','gst_amount',
-        'discount',
+        'cash_discount',
         'cgst',
         'sgst',
         'igst',];

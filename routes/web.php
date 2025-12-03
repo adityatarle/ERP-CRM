@@ -284,6 +284,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/invoices/pending-unlock-requests', [InvoiceController::class, 'listPendingUnlockRequests'])->name('invoices.pending_unlock_requests');
 
         Route::get('/reports/profit-loss', [\App\Http\Controllers\ReportController::class, 'salesProfitLoss'])->name('reports.profit_loss');
+        Route::get('/reports/profit-loss-comprehensive', [\App\Http\Controllers\ProfitLossController::class, 'index'])->name('reports.profit_loss_comprehensive');
+        Route::get('/reports/profit-loss-comprehensive/export', [\App\Http\Controllers\ProfitLossController::class, 'export'])->name('reports.profit_loss_comprehensive.export');
+        Route::get('/reports/profit-loss-comprehensive/data', [\App\Http\Controllers\ProfitLossController::class, 'getData'])->name('reports.profit_loss_comprehensive.data');
+        Route::get('/reports/profit-loss-comprehensive/summary', [\App\Http\Controllers\ProfitLossController::class, 'getSummary'])->name('reports.profit_loss_comprehensive.summary');
         Route::get('/reports/category-wise', [\App\Http\Controllers\ReportController::class, 'categoryWiseReport'])->name('reports.category_wise');
         Route::get('/reports/category-wise/export', [\App\Http\Controllers\ReportController::class, 'categoryWiseExport'])->name('reports.category_wise_export');
         Route::get('/reports/category-details/{category}', [\App\Http\Controllers\ReportController::class, 'categoryDetails'])->name('reports.category_details');

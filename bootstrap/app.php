@@ -15,9 +15,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // ADD THIS ONE LINE TO FIX THE REDIRECTION
         $middleware->redirectUsersTo('/');
 
+        // Global middleware - Temporarily using NoCSPHeaders to fix CSP issues
+        $middleware->append(\App\Http\Middleware\NoCSPHeaders::class);
+        $middleware->append(\App\Http\Middleware\LogSensitiveData::class);
+
         // Your existing middleware alias
         $middleware->alias([
             'superadmin' => \App\Http\Middleware\Superadmin::class,
+            'validate.file.upload' => \App\Http\Middleware\ValidateFileUpload::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

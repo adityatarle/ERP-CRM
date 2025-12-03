@@ -140,6 +140,7 @@ class PurchaseEntryController extends Controller
             'invoice_date' => 'required|date',
             'purchase_date' => 'required|date',
             'note' => 'nullable|string',
+            'cash_discount' => 'nullable|numeric|min:0|max:100',
             'products' => 'required|array|min:1',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|numeric|min:0',
@@ -159,8 +160,9 @@ class PurchaseEntryController extends Controller
                 }
 
                 $totalAmount = 0;
-                $totalDiscount = 0;
+                $totalItemDiscountAmount = 0;
                 $totalGstAmount = 0;
+                $discountPercentages = [];
 
                 foreach ($receivedProducts as $productData) {
                     $quantity = (float)$productData['quantity'];
@@ -171,15 +173,27 @@ class PurchaseEntryController extends Controller
                     $igstRate = (float)($productData['igst_rate'] ?? 0);
 
                     $baseTotal = $quantity * $unitPrice;
-                    $discountAmount = $baseTotal * ($discount / 100);
-                    $priceAfterDiscount = $baseTotal - $discountAmount;
+                    $itemDiscountAmount = $baseTotal * ($discount / 100);
+                    $priceAfterDiscount = $baseTotal - $itemDiscountAmount;
                     $gstAmount = $priceAfterDiscount * (($cgstRate + $sgstRate + $igstRate) / 100);
                     $totalWithGST = $priceAfterDiscount + $gstAmount;
 
                     $totalAmount += $totalWithGST;
-                    $totalDiscount += $discountAmount;
+                    $totalItemDiscountAmount += $itemDiscountAmount;
                     $totalGstAmount += $gstAmount;
+                    if ($discount > 0) {
+                        $discountPercentages[] = $discount;
+                    }
                 }
+
+                // Calculate average item discount percentage
+                $averageDiscountPercentage = !empty($discountPercentages) ? array_sum($discountPercentages) / count($discountPercentages) : 0;
+
+                // Use the cash discount percentage directly
+                $cashDiscountRate = (float)($validated['cash_discount'] ?? 0);
+                $amountAfterItemDiscount = $totalAmount - $totalGstAmount;
+                $cashDiscountAmount = $amountAfterItemDiscount * ($cashDiscountRate / 100);
+                $finalTotalAmount = $totalAmount - $cashDiscountAmount;
 
                 $purchaseEntry = PurchaseEntry::create([
                     'purchase_number' => 'PE-' . strtoupper(Str::random(8)),
@@ -190,8 +204,9 @@ class PurchaseEntryController extends Controller
                     'party_id' => $validated['party_id'],
                     'note' => $validated['note'],
                     'gst_amount' => $totalGstAmount,
-                    'discount' => $totalDiscount,
-                    'from_receipt_note' => false, // Default for direct entries
+                    'discount' => $averageDiscountPercentage,
+                    'cash_discount' => $cashDiscountRate, // Store the percentage directly
+                    'from_receipt_note' => false,
                 ]);
 
                 foreach ($receivedProducts as $itemData) {
@@ -203,8 +218,8 @@ class PurchaseEntryController extends Controller
                     $igstRate = (float)($itemData['igst_rate'] ?? 0);
 
                     $baseTotal = $quantity * $unitPrice;
-                    $discountAmount = $baseTotal * ($discount / 100);
-                    $priceAfterDiscount = $baseTotal - $discountAmount;
+                    $itemDiscountAmount = $baseTotal * ($discount / 100);
+                    $priceAfterDiscount = $baseTotal - $itemDiscountAmount;
                     $gstAmount = $priceAfterDiscount * (($cgstRate + $sgstRate + $igstRate) / 100);
 
                     PurchaseEntryItem::create([
@@ -220,7 +235,6 @@ class PurchaseEntryController extends Controller
                         'status' => $itemData['status'],
                     ]);
 
-                    // Only update stock for direct entries, not converted ones
                     if ($itemData['status'] === 'received' && !$purchaseEntry->from_receipt_note) {
                         $productModel = Product::find($itemData['product_id']);
                         if ($productModel) {
@@ -232,11 +246,10 @@ class PurchaseEntryController extends Controller
                 Payable::create([
                     'purchase_entry_id' => $purchaseEntry->id,
                     'party_id' => $validated['party_id'],
-                    'amount' => $totalAmount,
+                    'amount' => $finalTotalAmount,
                     'is_paid' => false,
                 ]);
 
-                // Check if all items in the purchase order are received
                 $purchaseOrderItems = PurchaseOrderItem::where('purchase_order_id', $validated['purchase_order_id'])->get();
                 $allItemsReceived = true;
 

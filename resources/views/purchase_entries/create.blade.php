@@ -27,7 +27,6 @@
     .products-header,
     .product-item-row {
         display: grid;
-        /* Updated grid for the remove button */
         grid-template-columns: 3fr 1fr 1.5fr 1fr 1fr 1fr 1fr 1fr 0.5fr;
         gap: 1rem;
         align-items: start;
@@ -110,7 +109,6 @@
                                         <option value="" selected disabled>-- Select a PO with remaining items --</option>
                                         @foreach($purchaseOrders as $po)
                                             @php
-                                                // Calculate remaining items count for display
                                                 $receivedViaNote = $po->receiptNoteItems
                                                     ->where('status', 'received')
                                                     ->groupBy('product_id')
@@ -160,6 +158,10 @@
                                     <label for="purchase_date" class="form-label">Entry Date</label>
                                     <input type="date" name="purchase_date" class="form-control" value="{{ old('purchase_date', date('Y-m-d')) }}" required>
                                 </div>
+                                <div class="col-md-4">
+                                    <label for="cash_discount" class="form-label">Cash Discount (%)</label>
+                                    <input type="number" name="cash_discount" id="cash_discount" class="form-control" value="{{ old('cash_discount', 0) }}" step="0.01" min="0" max="100">
+                                </div>
                                 <div class="col-12">
                                     <label for="note" class="form-label">Note (Optional)</label>
                                     <textarea name="note" class="form-control" rows="2">{{ old('note') }}</textarea>
@@ -194,10 +196,14 @@
                                         <div class="col-5 text-end" id="subtotal">₹0.00</div>
                                     </div>
                                     <div class="row mb-2">
-                                        <div class="col-7">Total Discount</div>
-                                        <div class="col-5 text-end" id="total_discount">₹0.00</div>
+                                        <div class="col-7">Total Item Discount</div>
+                                        <div class="col-5 text-end" id="total_item_discount">₹0.00</div>
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
+                                        <div class="col-7">Cash Discount</div>
+                                        <div class="col-5 text-end" id="cash_discount_amount">₹0.00</div>
+                                    </div>
+                                    <div class="row mb-2">
                                         <div class="col-7">Total Tax</div>
                                         <div class="col-5 text-end" id="total_tax">₹0.00</div>
                                     </div>
@@ -220,162 +226,167 @@
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function() {
+    <script>
+        $(document).ready(function() {
+            const productsList = $('#products-list');
+            const productsHeader = $('.products-header');
 
-        const productsList = $('#products-list');
-        const productsHeader = $('.products-header');
+            $('#purchase_order_id').on('change', function() {
+                const poId = $(this).val();
+                if (!poId) return resetForm();
 
-        // Main event listener for the PO dropdown
-        $('#purchase_order_id').on('change', function() {
-            const poId = $(this).val();
-            if (!poId) return resetForm();
+                const selectedOption = $(this).find('option:selected');
+                const partyName = selectedOption.data('party-name');
+                const partyId = selectedOption.data('party-id');
+                
+                productsList.html('<p class="text-muted text-center p-4">Loading...</p>');
 
-            const selectedOption = $(this).find('option:selected');
-            const partyName = selectedOption.data('party-name');
-            const partyId = selectedOption.data('party-id');
-            
-            productsList.html('<p class="text-muted text-center p-4">Loading...</p>');
+                if (partyName) {
+                    $('#party_name').val(partyName);
+                    $('#party_id').val(partyId);
+                }
 
-            if (partyName) {
-                $('#party_name').val(partyName);
-                $('#party_id').val(partyId);
-            }
+                $.ajax({
+                    url: `/purchase-orders/${poId}/details`,
+                    method: 'GET',
+                    success: function(po) {
+                        $('#party_name').val(po.party.name);
+                        $('#party_id').val(po.party.id);
+                        productsList.empty();
 
-            $.ajax({
-                url: `/purchase-orders/${poId}/details`,
-                method: 'GET',
-                success: function(po) {
-                    $('#party_name').val(po.party.name);
-                    $('#party_id').val(po.party.id);
-                    productsList.empty();
-
-                    // Assuming your backend sends 'items' with 'quantity_remaining'
-                    if (po.items && po.items.length > 0) {
-                        productsHeader.css('display', 'grid');
-                        po.items.forEach((item, index) => addProductRow(item, index));
-                    } else {
-                        productsList.html('<p class="text-info text-center p-4">All items for this Purchase Order have been received.</p>');
-                        productsHeader.hide();
+                        if (po.items && po.items.length > 0) {
+                            productsHeader.css('display', 'grid');
+                            po.items.forEach((item, index) => addProductRow(item, index));
+                        } else {
+                            productsList.html('<p class="text-info text-center p-4">All items for this Purchase Order have been received.</p>');
+                            productsHeader.hide();
+                        }
+                        calculateTotals();
+                    },
+                    error: () => {
+                        productsList.html('<p class="text-danger text-center p-4">Could not load PO details.</p>');
+                        resetForm();
                     }
-                    // This call will now work correctly
-                    calculateTotals();
-                },
-                error: () => {
-                    productsList.html('<p class="text-danger text-center p-4">Could not load PO details.</p>');
-                    resetForm();
-                }
+                });
             });
-        });
 
-        function addProductRow(item, index) {
-            const product = item.product || { name: 'Unknown Product' };
-            const remainingQty = item.quantity_remaining || 0;
+            function addProductRow(item, index) {
+                const product = item.product || { name: 'Unknown Product' };
+                const remainingQty = item.quantity_remaining || 0;
 
-            if (remainingQty <= 0) return; // Don't add fully received items
+                if (remainingQty <= 0) return;
 
-            const rowHtml = `
-            <div class="product-item-row" id="row-${index}">
-                <input type="hidden" name="products[${index}][product_id]" value="${item.product_id}">
-                <div class="fw-bold d-flex align-items-center">${product.name}</div>
-                <div>
-                    <input type="number" name="products[${index}][quantity]" class="form-control quantity-input" min="0" max="${remainingQty}" required value="0" placeholder="0">
-                    <small class="text-muted">Remaining: ${remainingQty}</small>
-                </div>
-                <div><input type="number" step="0.01" name="products[${index}][unit_price]" value="${item.unit_price}" class="form-control unit-price" readonly></div>
-                <div><input type="number" step="0.01" name="products[${index}][discount]" value="${item.discount || 0}" class="form-control discount-input" readonly></div>
-                <div><input type="number" step="0.01" name="products[${index}][cgst_rate]" value="${item.cgst_rate || item.cgst || 0}" class="form-control cgst-rate" readonly></div>
-                <div><input type="number" step="0.01" name="products[${index}][sgst_rate]" value="${item.sgst_rate || item.sgst || 0}" class="form-control sgst-rate" readonly></div>
-                <div><input type="number" step="0.01" name="products[${index}][igst_rate]" value="${item.igst_rate || item.igst || 0}" class="form-control igst-rate" readonly></div>
-                <div>
-                    <select name="products[${index}][status]" class="form-select status-select">
-                        <option value="received" selected>Received</option>
-                        <option value="pending">Pending</option>
-                    </select>
-                </div>
-                <div class="d-flex align-items-center justify-content-center">
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" title="Remove from this entry"><i class="fa fa-trash"></i></button>
-                </div>
-            </div>`;
-            productsList.append(rowHtml);
-        }
+                const rowHtml = `
+                <div class="product-item-row" id="row-${index}">
+                    <input type="hidden" name="products[${index}][product_id]" value="${item.product_id}">
+                    <div class="fw-bold d-flex align-items-center">${product.name}</div>
+                    <div>
+                        <input type="number" name="products[${index}][quantity]" class="form-control quantity-input" min="0" max="${remainingQty}" required value="0" placeholder="0">
+                        <small class="text-muted">Remaining: ${remainingQty}</small>
+                    </div>
+                    <div><input type="number" step="0.01" name="products[${index}][unit_price]" value="${item.unit_price}" class="form-control unit-price" readonly></div>
+                    <div><input type="number" step="0.01" name="products[${index}][discount]" value="${item.discount || 0}" class="form-control discount-input" readonly></div>
+                    <div><input type="number" step="0.01" name="products[${index}][cgst_rate]" value="${item.cgst_rate || item.cgst || 0}" class="form-control cgst-rate" readonly></div>
+                    <div><input type="number" step="0.01" name="products[${index}][sgst_rate]" value="${item.sgst_rate || item.sgst || 0}" class="form-control sgst-rate" readonly></div>
+                    <div><input type="number" step="0.01" name="products[${index}][igst_rate]" value="${item.igst_rate || item.igst || 0}" class="form-control igst-rate" readonly></div>
+                    <div>
+                        <select name="products[${index}][status]" class="form-select status-select">
+                            <option value="received" selected>Received</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" title="Remove from this entry"><i class="fa fa-trash"></i></button>
+                    </div>
+                </div>`;
+                productsList.append(rowHtml);
+            }
 
-        productsList.on('click', '.remove-item-btn', function() {
-            $(this).closest('.product-item-row').remove();
-            if (productsList.children().length === 0) {
-                productsList.html('<p class="text-muted text-center p-4 border rounded">All items removed. You can re-select the PO to add them back.</p>');
+            productsList.on('click', '.remove-item-btn', function() {
+                $(this).closest('.product-item-row').remove();
+                if (productsList.children().length === 0) {
+                    productsList.html('<p class="text-muted text-center p-4 border rounded">All items removed. You can re-select the PO to add them back.</p>');
+                    productsHeader.hide();
+                }
+                calculateTotals();
+            });
+
+            productsList.on('input', '.quantity-input', function() {
+                const $input = $(this);
+                const maxQty = parseFloat($input.attr('max'));
+                const currentQty = parseFloat($input.val());
+
+                if (currentQty > maxQty) {
+                    $input.val(maxQty);
+                    $input.parent().find('.text-danger').remove();
+                    const $warning = $('<small class="text-danger d-block mt-1">Max qty exceeded.</small>');
+                    $input.parent().append($warning);
+                    setTimeout(() => $warning.remove(), 2000);
+                }
+                calculateTotals();
+            });
+
+            $('#cash_discount').on('input', calculateTotals);
+
+            function resetForm() {
+                $('#party_name').val('');
+                $('#party_id').val('');
+                $('#cash_discount').val(0);
+                productsList.html('<p class="text-muted text-center p-4 border rounded">Select a Purchase Order to load products.</p>');
                 productsHeader.hide();
+                calculateTotals();
             }
-            calculateTotals();
-        });
 
-        productsList.on('input', '.quantity-input', function() {
-            const $input = $(this);
-            const maxQty = parseFloat($input.attr('max'));
-            const currentQty = parseFloat($input.val());
+            function calculateTotals() {
+                let totalSubtotal = 0;
+                let totalItemDiscountAmount = 0;
+                let totalTax = 0;
+                let itemDiscountPercentages = [];
 
-            if (currentQty > maxQty) {
-                $input.val(maxQty);
-                $input.parent().find('.text-danger').remove();
-                const $warning = $('<small class="text-danger d-block mt-1">Max qty exceeded.</small>');
-                $input.parent().append($warning);
-                setTimeout(() => $warning.remove(), 2000);
+                $('.product-item-row').each(function() {
+                    const $row = $(this);
+                    const quantity = parseFloat($row.find('.quantity-input').val()) || 0;
+                    const unitPrice = parseFloat($row.find('.unit-price').val()) || 0;
+                    const discountRate = parseFloat($row.find('.discount-input').val()) || 0;
+                    const cgstRate = parseFloat($row.find('.cgst-rate').val()) || 0;
+                    const sgstRate = parseFloat($row.find('.sgst-rate').val()) || 0;
+                    const igstRate = parseFloat($row.find('.igst-rate').val()) || 0;
+
+                    if (quantity === 0) {
+                        return;
+                    }
+
+                    const itemSubtotal = quantity * unitPrice;
+                    const itemDiscountAmount = itemSubtotal * (discountRate / 100);
+                    const taxableAmount = itemSubtotal - itemDiscountAmount;
+                    const itemTaxAmount = taxableAmount * ((cgstRate + sgstRate + igstRate) / 100);
+
+                    totalSubtotal += itemSubtotal;
+                    totalItemDiscountAmount += itemDiscountAmount;
+                    totalTax += itemTaxAmount;
+                    if (discountRate > 0) {
+                        itemDiscountPercentages.push(discountRate);
+                    }
+                });
+
+                const cashDiscountRate = parseFloat($('#cash_discount').val()) || 0;
+                const amountAfterItemDiscount = totalSubtotal - totalItemDiscountAmount;
+                const cashDiscountAmount = amountAfterItemDiscount * (cashDiscountRate / 100);
+                const grandTotal = (amountAfterItemDiscount - cashDiscountAmount) + totalTax;
+
+                const formatCurrency = (amount) => `₹${amount.toFixed(2)}`;
+
+                $('#subtotal').text(formatCurrency(totalSubtotal));
+                $('#total_item_discount').text(formatCurrency(totalItemDiscountAmount));
+                $('#cash_discount_amount').text(formatCurrency(cashDiscountAmount));
+                $('#total_tax').text(formatCurrency(totalTax));
+                $('#grand_total').text(formatCurrency(grandTotal));
             }
-            calculateTotals();
+
+            if ($('#purchase_order_id').val()) {
+                $('#purchase_order_id').trigger('change');
+            }
         });
-
-        function resetForm() {
-            $('#party_name').val('');
-            $('#party_id').val('');
-            productsList.html('<p class="text-muted text-center p-4 border rounded">Select a Purchase Order to load products.</p>');
-            productsHeader.hide();
-            calculateTotals();
-        }
-
-        // ==========================================================
-        // == THIS IS THE CORRECTED, WORKING FUNCTION              ==
-        // ==========================================================
-        function calculateTotals() {
-            let totalSubtotal = 0;
-            let totalDiscount = 0;
-            let totalTax = 0;
-
-            $('.product-item-row').each(function() {
-                const $row = $(this);
-                const quantity = parseFloat($row.find('.quantity-input').val()) || 0;
-                const unitPrice = parseFloat($row.find('.unit-price').val()) || 0;
-                const discountRate = parseFloat($row.find('.discount-input').val()) || 0;
-                const cgstRate = parseFloat($row.find('.cgst-rate').val()) || 0;
-                const sgstRate = parseFloat($row.find('.sgst-rate').val()) || 0;
-                const igstRate = parseFloat($row.find('.igst-rate').val()) || 0;
-
-                if (quantity === 0) {
-                    return;
-                }
-
-                const itemSubtotal = quantity * unitPrice;
-                const itemDiscountAmount = itemSubtotal * (discountRate / 100);
-                const taxableAmount = itemSubtotal - itemDiscountAmount;
-                const itemTaxAmount = taxableAmount * ((cgstRate + sgstRate + igstRate) / 100);
-
-                totalSubtotal += itemSubtotal;
-                totalDiscount += itemDiscountAmount;
-                totalTax += itemTaxAmount;
-            });
-
-            const grandTotal = (totalSubtotal - totalDiscount) + totalTax;
-            const formatCurrency = (amount) => `₹${amount.toFixed(2)}`;
-
-            $('#subtotal').text(formatCurrency(totalSubtotal));
-            $('#total_discount').text(formatCurrency(totalDiscount));
-            $('#total_tax').text(formatCurrency(totalTax));
-            $('#grand_total').text(formatCurrency(grandTotal));
-        }
-
-        if ($('#purchase_order_id').val()) {
-            $('#purchase_order_id').trigger('change');
-        }
-    });
-</script>
+    </script>
 </body>
 @include('layout.footer')

@@ -297,7 +297,7 @@ public function generatePDF(Invoice $invoice)
     $company = [
         'name' => 'MAULI SOLUTIONS',
         'address' => 'Gat No-627, Pune-Nashik Highway, IN Front Off Gabriel, Vitthal-Muktai Complex, Kuruli Chakan, Pune-410501',
-        'contact' => 'Mob-9284716150/9158506948',
+        'contact' => 'Mob-9284716150',
         'udyam' => 'UDYAM-MH-26-0484571 (Small)',
         'gstin' => '27ABIFM9220D1ZC',
         'state' => 'Maharashtra, Code: 27',

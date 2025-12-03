@@ -306,10 +306,9 @@
                         </tr>
                         @endif
                         <tr class="font-bold">
-                            <th colspan="4" class="text-uppercase text-end">Grand Total</th>
-                            <th class="text-center">{{ $totalQuantity }} NOS</th>
-                            <th colspan="2"></th>
-                            <th class="text-end">{{ number_format($invoice->total, 2) }}/-</th>
+                            <th colspan="6" class="text-uppercase text-end">Grand Total</th> {{-- Increased colspan for Grand Total label --}}
+                            <th class="text-center">12 NOS</th> {{-- Quantity --}}
+                            <th class="text-end">{{ number_format($invoice->total, 2) }}/-</th> {{-- Total amount --}}
                         </tr>
                         <tr>
                             <td colspan="8">Amount (In Words): <b>INR {{ $amount_in_words ?? '' }} Rupees Only</b></td>

@@ -6,6 +6,9 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
+use App\Http\Requests\CreateProductRequest;
+use App\Http\Requests\ImportFileRequest;
+use App\Services\FileUploadService;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -48,23 +51,14 @@ class ProductController extends Controller
         return view('products.create', compact('categories', 'subcategories'));
     }
 
-    public function store(Request $request)
+    public function store(CreateProductRequest $request)
     {
-        // 1. Validation rules updated for the new fields
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:products,name',
-            'category' => 'required|string|max:255',
-            'subcategory' => 'nullable|string|max:255',
-            'hsn' => 'nullable|string|max:8',
-            'gst' => 'nullable|numeric|min:0|max:100',
-            // 'is_taxable' is handled separately below
-        ]);
+        $validated = $request->validated();
+        
+        // Handle the checkbox for 'is_taxable'
+        $validated['is_taxable'] = $request->has('is_taxable') ? 1 : 0;
 
-        // 2. Handle the checkbox for 'is_taxable'
-        // An unchecked checkbox does not send a value, so we check for its presence.
-        $validated['is_taxable'] = $request->has('is_taxable');
-
-        // 3. Create the product with the validated data
+        // Create the product with the validated data
         $product = Product::create($validated);
 
         // This part handles AJAX responses (e.g., from a modal)
@@ -76,6 +70,7 @@ class ProductController extends Controller
                     'name' => $product->name,
                     'hsn' => $product->hsn,
                     'gst' => $product->gst,
+                    'price' => $product->price,
                 ],
             ], 200);
         }
@@ -133,18 +128,21 @@ class ProductController extends Controller
         return Excel::download(new ProductsExport, 'products.xlsx');
     }
 
-    public function import(Request $request)
+    public function import(ImportFileRequest $request, FileUploadService $fileUploadService)
     {
-        $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:2048',
-        ]);
-
         try {
-            $fileName = $request->file('file')->getClientOriginalName();
-            Log::info('Importing file: ' . $fileName);
+            $file = $request->file('file');
+            
+            // Upload file securely
+            $uploadResult = $fileUploadService->upload($file, 'import', 'imports');
+            
+            Log::info('Importing file: ' . $uploadResult['original_name'], [
+                'filename' => $uploadResult['filename'],
+                'size' => $uploadResult['size']
+            ]);
 
             $import = new ProductsImport;
-            Excel::import($import, $request->file('file'));
+            Excel::import($import, $file);
 
             $rowCount = $import->getRowCount();
             if ($rowCount === 0) {

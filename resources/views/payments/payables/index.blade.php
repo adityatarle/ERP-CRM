@@ -200,15 +200,13 @@
                                         <td>
                                             <div class="btn-group" role="group">
                                                 @if($payable->payment_count > 0)
-                                                    <button type="button" class="btn btn-sm btn-outline-info" 
-                                                            onclick="showPaymentDetails({{ $payable->id }}, '{{ $payable->purchaseEntry->purchase_number ?? 'N/A' }}')">
-                                                        <i class="fa fa-eye me-1"></i>View Payments
+                                                    <button type="button" class="btn btn-sm btn-outline-info p-0" style="font-size: 10px;" 
+                                                            onclick="showPaymentDetails({{ $payable->id }}, '{{ $payable->purchaseEntry->purchase_number ?? 'N/A' }}')">View Payments
                                                     </button>
                                                 @endif
                                                 @if($payable->remaining_amount > 0.01)
-                                                    <button type="button" class="btn btn-sm btn-primary" 
-                                                            onclick="recordPayment({{ $payable->id }}, '{{ $payable->party->name ?? 'N/A' }}', {{ $payable->remaining_amount }})">
-                                                        <i class="fa fa-plus me-1"></i>Record Payment
+                                                    <button type="button" class="btn btn-sm btn-primary p-0" style="font-size: 10px;"
+                                                            onclick="recordPayment({{ $payable->id }}, '{{ $payable->party->name ?? 'N/A' }}', {{ $payable->remaining_amount }})">Record Payment
                                                     </button>
                                                 @endif
                                             </div>

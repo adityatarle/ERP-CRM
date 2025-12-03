@@ -558,45 +558,6 @@
                     </div>
                     <!-- Financial Summary End -->
 
-                    <!-- Quick Actions / Shortcuts -->
-                    <div class="container-fluid pt-5">
-                        <div class="bg-white shadow-sm rounded-3 p-4">
-                            <h5 class="fw-bold text-dark mb-4">Quick Actions</h5>
-                            <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3">
-                                @php
-                                $shortcuts = [
-                                ['route' => 'invoices.create', 'icon' => 'fa-file-invoice', 'label' => 'Create Invoice', 'color' => 'subtle-primary'],
-                                ['route' => 'delivery_notes.create', 'icon' => 'fa-truck', 'label' => 'Create Delivery Note', 'color' => 'subtle-success'],
-                                ['route' => 'products.index', 'icon' => 'fa-laptop', 'label' => 'View Products', 'color' => 'subtle-warning'],
-                                ['route' => 'customers.index', 'icon' => 'fa-keyboard', 'label' => 'View Customers', 'color' => 'subtle-info'],
-                                ['route' => 'purchase_orders.create', 'icon' => 'fa-shopping-cart', 'label' => 'New Purchase Order', 'color' => 'subtle-danger', 'role' => ['superadmin', 'manager']],
-                                ['route' => 'purchase_entries.index', 'icon' => 'fa-file-invoice-dollar', 'label' => 'Purchase Entries', 'color' => 'subtle-secondary', 'role' => ['superadmin', 'manager']],
-                                ['route' => 'receivables', 'icon' => 'fa-hand-holding-usd', 'label' => 'Receivables', 'color' => 'subtle-primary', 'role' => ['superadmin', 'manager']],
-                                ['route' => 'payables', 'icon' => 'fa-money-bill-wave', 'label' => 'Payables', 'color' => 'subtle-success', 'role' => ['superadmin', 'manager']],
-                                ['route' => 'reports.category_wise', 'icon' => 'fa-chart-bar', 'label' => 'Category Report', 'color' => 'subtle-info', 'role' => ['superadmin']],
-                                ['route' => 'reports.profit_loss', 'icon' => 'fa-chart-line', 'label' => 'Profit Analysis', 'color' => 'subtle-warning', 'role' => ['superadmin']],
-                                ];
-                                @endphp
-
-                                @foreach ($shortcuts as $shortcut)
-                                @if (empty($shortcut['role']) || (Auth::check() && in_array(Auth::user()->role, $shortcut['role'])))
-                                <div class="col">
-                                    <a href="{{ route($shortcut['route']) }}" class="text-decoration-none">
-                                        <div class="card border-0 shadow-sm h-100 card-{{ $shortcut['color'] }} transition-all hover-scale">
-                                            <div class="card-body d-flex flex-column align-items-center justify-content-center p-3">
-                                                <i class="fa {{ $shortcut['icon'] }} fa-2x mb-2"></i>
-                                                <span class="fs-6 fw-medium">{{ $shortcut['label'] }}</span>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
-                                @endif
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                    <!-- End of Quick Actions -->
-
                     <!-- Reports Section -->
                     @if (Auth::check() && Auth::user()->role === 'superadmin')
                     <div class="container-fluid pt-4">
@@ -641,6 +602,47 @@
                         </div>
                     </div>
                     @endif
+                    
+                    <!-- Quick Actions / Shortcuts -->
+                    <div class="container-fluid pt-5">
+                        <div class="bg-white shadow-sm rounded-3 p-4">
+                            <h5 class="fw-bold text-dark mb-4">Quick Actions</h5>
+                            <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3">
+                                @php
+                                $shortcuts = [
+                                ['route' => 'invoices.create', 'icon' => 'fa-file-invoice', 'label' => 'Create Invoice', 'color' => 'subtle-primary'],
+                                ['route' => 'delivery_notes.create', 'icon' => 'fa-truck', 'label' => 'Create Delivery Note', 'color' => 'subtle-success'],
+                                ['route' => 'products.index', 'icon' => 'fa-laptop', 'label' => 'View Products', 'color' => 'subtle-warning'],
+                                ['route' => 'customers.index', 'icon' => 'fa-keyboard', 'label' => 'View Customers', 'color' => 'subtle-info'],
+                                ['route' => 'purchase_orders.create', 'icon' => 'fa-shopping-cart', 'label' => 'New Purchase Order', 'color' => 'subtle-danger', 'role' => ['superadmin', 'manager']],
+                                ['route' => 'purchase_entries.index', 'icon' => 'fa-file-invoice-dollar', 'label' => 'Purchase Entries', 'color' => 'subtle-secondary', 'role' => ['superadmin', 'manager']],
+                                ['route' => 'receivables', 'icon' => 'fa-hand-holding-usd', 'label' => 'Receivables', 'color' => 'subtle-primary', 'role' => ['superadmin', 'manager']],
+                                ['route' => 'payables', 'icon' => 'fa-money-bill-wave', 'label' => 'Payables', 'color' => 'subtle-success', 'role' => ['superadmin', 'manager']],
+                                ['route' => 'reports.category_wise', 'icon' => 'fa-chart-bar', 'label' => 'Category Report', 'color' => 'subtle-info', 'role' => ['superadmin']],
+                                ['route' => 'reports.profit_loss', 'icon' => 'fa-chart-line', 'label' => 'Profit Analysis', 'color' => 'subtle-warning', 'role' => ['superadmin']],
+                                ];
+                                @endphp
+
+                                @foreach ($shortcuts as $shortcut)
+                                @if (empty($shortcut['role']) || (Auth::check() && in_array(Auth::user()->role, $shortcut['role'])))
+                                <div class="col">
+                                    <a href="{{ route($shortcut['route']) }}" class="text-decoration-none">
+                                        <div class="card border-0 shadow-sm h-100 card-{{ $shortcut['color'] }} transition-all hover-scale">
+                                            <div class="card-body d-flex flex-column align-items-center justify-content-center p-3">
+                                                <i class="fa {{ $shortcut['icon'] }} fa-2x mb-2"></i>
+                                                <span class="fs-6 fw-medium">{{ $shortcut['label'] }}</span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End of Quick Actions -->
+
+
 
                     <!-- Main Content with Tables -->
                     <!-- STRUCTURE: Wrap tables in a container and row for proper layout -->
